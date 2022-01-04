@@ -14,7 +14,8 @@ if (!suppressWarnings(require("Require"))) {
 }
 
 pkgs <- c(
-  "data.table", "DHARMa", "effects", "foreign", "gamlss", "ggplot2", "lme4", "lmerTest", "mgcv",
+  "data.table", "DHARMa", "effects", "foreign", "gamlss", "ggplot2", "googledrive",
+  "lme4", "lmerTest", "mgcv",
   "dplyr", "readr", "tidyverse", ## TODO: remove these in favour of data.table
   "performance", "splines"
 )
@@ -38,21 +39,28 @@ outputDir <- checkPath("outputs", create = TRUE)
 ## https://drive.google.com/drive/folders/1ZM8i8VZ8BcsxEdxWPE2S-AMO0JvQ9DRI?usp=sharing
 
 
-# run the model
-plot3 <- read.table(file.path(inputDir, "FinalAllAgeDataset2.txt"), header = TRUE, sep = " ", fill = TRUE, dec = ".") # the dataset of ground plots
+## run the model
+f1 <- file.path(inputDir, "FinalAllAgeDataset2.txt")
+drive_download(as_id("13R7YW9RpxVQ6u-h4qGQhXDpQp76Umbva"), path = f1, overwrite = TRUE)
+plot3 <- read.table(f1, header = TRUE, sep = " ", fill = TRUE, dec = ".") # the dataset of ground plots
 plot3$ecozone <- as.factor(as.character(plot3$ecozone))
 summary(plot3$ecozone)
 plot3$LCC <- as.factor(as.character(plot3$LCC))
 summary(plot3$LCC)
 
+## NOTE: need too much RAM to run below with the parameter select=TRUE
 modage2 <- bam(TSLF ~ s(total_BA) + ecozone + LCC + s(total_BA, by = ecozone) + s(total_BA, by = LCC) +
-  s(longitude, latitude, bs = "gp", k = 100, m = 2) + s(Tave_sm) + ti(total_BA, Tave_sm)
-  + s(year_BA, bs = "re"), data = plot3, method = "fREML", family = negbin(3.416129), discrete = TRUE) # I don't have enough memory to run it with the parameter,select=TRUE
+                 s(longitude, latitude, bs = "gp", k = 100, m = 2) + s(Tave_sm) + ti(total_BA, Tave_sm) +
+                 s(year_BA, bs = "re"),
+               #select = TRUE, ## Error: cannot allocate vector of size 123559.1 Gb
+               data = plot3, method = "fREML", family = negbin(3.416129), discrete = TRUE)
 summary(modage2)
 gam.check(modage2) #
 
-# I have created the dataset that I will use to predict the model in ArcMap (resolution 1 x 1 km)
-newdataset <- read.table(file.path(inputDir, "TaveMultiPoints.txt"), header = TRUE, sep = ",", fill = TRUE, dec = ".")
+## TODO: script dataset creation in R instead of pre-making in ArcMap (resolution 1 x 1 km)
+f2 <- file.path(inputDir, "TaveMultiPoints.txt")
+drive_download(as_id("1LtN98HClGK7xgoNiZJ8PKZEkXk8ruPzR"), path = f2)
+newdataset <- read.table(f2, header = TRUE, sep = ",", fill = TRUE, dec = ".")
 head(newdataset)
 str(newdataset)
 newdataset <- na.omit(newdataset[, -c(1:2)])
@@ -78,9 +86,11 @@ range(newdataset$predictstack)
 hist((newdataset$predictstack))
 cor.test(newdataset$PreviusStandAge, newdataset$predictstack)
 hist((newdataset$PreviusStandAge))
-# write.csv(newdataset,"Predictions.csv")# I have exported the dataset and created the raster in ArcMap
+#write.csv(newdataset,"Predictions.csv") ## exported the dataset and created the raster in ArcMap
 
-predAge <- raster(file.path(inputDir, "Predictions_PointToRaster1.tif"))
+## TODO: zip raster-related files, reupload as zip, and use prepInputs()
+f3 <- file.path(inputDir, "Predictions_PointToRaster1.tif")
+predAge <- raster(f3)
 plot(predAge)
 
 predPrevAge <- raster(file.path(inputDir, "standAgeMap_it_1_ts_2011_ProROF.tif")) # This is the previous layer of Stand Age, is very different compared to the new one.
