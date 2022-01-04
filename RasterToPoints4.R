@@ -1,0 +1,107 @@
+library(lme4)
+library(ggplot2)
+library(lmerTest)
+library(splines)
+library(effects)
+library(performance)
+library(mgcv)
+library(DHARMa)
+library("gamlss")
+library(tidyverse)
+library(foreign)
+library(dplyr)
+library(raster)
+library("readr")
+library(rgdal)
+library(sf)
+library(usethis)
+#usethis::edit_r_environ()
+
+# run the model
+setwd("C:/Users/Raquel/Dropbox/Working/FIRES_ONTARIO/Goverment/Data/clip")
+getwd()
+plot3<-read.table("FinalAllAgeDataset2.txt", header=T, sep=" ", fill=T, dec=".")# the dataset of ground plots
+plot3$ecozone<-as.factor(as.character(plot3$ecozone))
+summary(plot3$ecozone)
+plot3$LCC<-as.factor(as.character(plot3$LCC))
+summary(plot3$LCC)
+
+modage2<-bam(TSLF~s(total_BA)+ecozone+LCC+s(total_BA,by=ecozone)+s(total_BA,by=LCC)+
+               s(longitude,latitude,bs='gp',k=100, m=2)+s(Tave_sm)+ti(total_BA,Tave_sm)
+             + s(year_BA, bs = 're'),data=plot3,method="fREML",family=negbin(3.416129),discrete=TRUE)#I don't have enough memory to run it with the parameter,select=TRUE
+summary(modage2)
+gam.check(modage2)#
+
+# I have created the dataset that I will use to predict the model in ArcMap (resolution 1 x 1 km)
+newdataset<-read.table("TaveMultiPoints.txt", header=T, sep=",", fill=T, dec=".")
+head(newdataset)
+str(newdataset)
+newdataset<-na.omit(newdataset[,-c(1:2)])
+newdataset<-as.data.frame(newdataset)
+colnames(newdataset)<-c("Tave_sm","ecozone","LCC","total_BA","PreviusStandAge","latitude","longitude")
+newdataset$year_BA<-2015
+newdataset$ecozone<-round(newdataset$ecozone,0)
+newdataset$LCC<-round(newdataset$LCC,0)
+newdataset$ecozone<-as.factor(as.character(newdataset$ecozone))
+newdataset$LCC<-as.factor(as.character(newdataset$LCC))
+summary(newdataset$LCC)
+summary(newdataset$ecozone)
+levels(newdataset$LCC)[levels(newdataset$LCC)=="11"] <- "11_12_13"
+levels(newdataset$LCC)[levels(newdataset$LCC)=="12"] <- "11_12_13"
+levels(newdataset$LCC)[levels(newdataset$LCC)=="13"] <- "11_12_13"
+newdataset<-subset(newdataset,LCC!="3"&LCC!="4"&LCC!="7"&LCC!="15"&LCC!="16"&LCC!="17"&LCC!="18"&LCC!="9")
+summary(newdataset$LCC)
+levels(newdataset$ecozone)[levels(newdataset$ecozone)=="10"] <- "BOREAL SHIELD"
+levels(newdataset$ecozone)[levels(newdataset$ecozone)=="11"] <- "HUDSON PLAIN"
+newdataset$predictstack<-exp(predict(modage2,newdataset))
+head(newdataset$predictstack)
+range(newdataset$predictstack)
+hist((newdataset$predictstack))
+cor.test(newdataset$PreviusStandAge,newdataset$predictstack)
+hist((newdataset$PreviusStandAge))
+#write.csv(newdataset,"Predictions.csv")# I have exported the dataset and created the raster in ArcMap
+
+predAge<- raster('Predictions_PointToRaster1.tif')
+plot(predAge)
+
+predPrevAge<- raster('standAgeMap_it_1_ts_2011_ProROF.tif')# This is the previous layer of Stand Age, is very different compared to the new one.
+plot(predPrevAge)
+
+# I would like to create the dataset to predict in R.This is what I tried so far.  
+setwd("C:/Users/Raquel/Dropbox/Working/FIRES_ONTARIO/Goverment/Data/clip")
+getwd()
+#####
+ba<- raster('CA_forest_basal_area_2015_ROF.tif')
+Tave<- raster('Normal_1981_2010_Tave_sm_ROF.tif')
+ecozone<- raster('ecozones_PolygonToRaster21_C1.tif')
+LCC<-raster("CAN_LC_2015_CAL_Clip1.tif")
+
+### In ArcGis I have reprojected the rasters, but I am having problems in r (I have removed all my failure code)
+# the idea was to extract the values of the rasters for the layer of points of LCC
+
+rasStack = stack(ba,Tave,ecozone)
+
+gc()
+memory.limit(1e+100)
+LCCpoints<-rasterToPoints(LCC,progress='text')
+LCCpoints2<-as.data.frame(LCCpoints)
+str(LCCpoints2)
+head(LCCpoints2)
+colnames(LCCpoints2)[3]<-"LCC"
+LCCpoints3<-subset(LCCpoints2,LCC<15)
+rm(LCCpoints)
+rm(LCCpoints2)
+LCCpoints3$LCC<-as.factor(LCCpoints3$LCC)
+summary(LCCpoints3$LCC)
+LCCpoints4<-subset(LCCpoints3,LCC!="0"&LCC!="9")
+summary(LCCpoints4$LCC)
+rm(LCCpoints3)
+levels(LCCpoints4$LCC)[levels(LCCpoints4$LCC)=="11"] <- "11_12_13"
+levels(LCCpoints4$LCC)[levels(LCCpoints4$LCC)=="12"] <- "11_12_13"
+levels(LCCpoints4$LCC)[levels(LCCpoints4$LCC)=="13"] <- "11_12_13"
+
+coordinates(LCCpoints4)= ~ x+y # my computer crash here
+
+rasValue=extract(rasStack, LCCpoints4)
+
+# I have stopped here.
