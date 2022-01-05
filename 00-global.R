@@ -60,7 +60,6 @@ opts <- options(
 ## TODO: Alex resume here; data available on Google Drive:
 ## https://drive.google.com/drive/folders/1ZM8i8VZ8BcsxEdxWPE2S-AMO0JvQ9DRI?usp=sharing
 
-
 ## run the model
 f1 <- file.path(inputDir, "FinalAllAgeDataset2.txt")
 drive_download(as_id("13R7YW9RpxVQ6u-h4qGQhXDpQp76Umbva"), path = f1, overwrite = TRUE)
@@ -141,6 +140,7 @@ ba <- Cache(
   destinationPath = inputDir,
   rasterToMatch = LCC
 )
+
 Tave <- Cache(
   prepInputs,
   url = "https://drive.google.com/file/d/1HT0swKK22D59n47RbbBJAyC1qGlAGb-E/",
@@ -149,6 +149,7 @@ Tave <- Cache(
   destinationPath = inputDir,
   rasterToMatch = LCC
 )
+
 ecozone <- Cache(
   prepInputs,
   url = "https://drive.google.com/file/d/1IwRayjkjOGFjIUDfCYyPsKmgx9MRGqKA/",
@@ -157,11 +158,6 @@ ecozone <- Cache(
   destinationPath = inputDir,
   rasterToMatch = LCC
 )
-
-### In ArcGis I have reprojected the rasters, but I am having problems in r (I have removed all my failure code)
-# the idea was to extract the values of the rasters for the layer of points of LCC
-
-## TODO: get the ArcGIS pieces scripted in R here
 
 LCCpoints <- Cache(rasterToPoints, x = LCC, progress = "text")
 gc()
