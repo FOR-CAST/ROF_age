@@ -4,8 +4,13 @@
 .RData
 .Ruserdata
 
+cache
 cache/
+inputs
 inputs/
+outputs
 outputs/
+packages
 packages/
-
+scratch
+scratch/

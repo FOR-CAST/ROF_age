@@ -13,13 +13,17 @@ if (!suppressWarnings(require("Require"))) {
   library(Require)
 }
 
-pkgs <- c(
-  "data.table", "DHARMa", "effects", "foreign", "gamlss", "ggplot2", "googledrive",
-  "lme4", "lmerTest", "mgcv",
+pkgs1 <- c(
+  "data.table", "DHARMa", "effects", "foreign", "gamlss", "ggplot2", "lme4", "lmerTest", "mgcv",
   "dplyr", "readr", "tidyverse", ## TODO: remove these in favour of data.table
-  "performance", "splines"
+  "performance", "qs", "splines"
 )
-Require(pkgs)
+Require(pkgs1, Require = FALSE) ## don't load/attach yet, just ensure these get installed
+
+pkgs2 <- c(
+  "googledrive"
+)
+Require(pkgs2) ## install if needed, and load/attach
 
 sptlPkgs <- c("rgdal", "sf", "terra", "raster") ## TODO: remove raster
 if (!all(sptlPkgs %in% rownames(installed.packages()))) {
@@ -31,9 +35,27 @@ Require(sptlPkgs)
 
 Require("PredictiveEcology/reproducible@development")
 
+## project paths
 cacheDir <- checkPath("cache", create = TRUE)
 inputDir <- checkPath("inputs", create = TRUE)
 outputDir <- checkPath("outputs", create = TRUE)
+scratchDir <- checkPath("scratch", create = TRUE)
+
+## project options
+raster::rasterOptions(default = TRUE)
+opts <- options(
+  "rasterMaxMemory" = 5e+12,
+  "rasterTmpDir" = scratchDir,
+  "reproducible.cachePath" = cacheDir,
+  "reproducible.cacheSaveFormat" = "qs",
+  "reproducible.nThreads" = 2,
+  "reproducible.quick" = FALSE,
+  "reproducible.showSimilar" = TRUE,
+  "reproducible.useCache" = TRUE,
+  "reproducible.useCloud" = TRUE,
+  "reproducible.useGDAL" = FALSE, ## TODO: can't use true until system call bugs are resolved
+  "reproducible.useMemoise" = FALSE
+)
 
 ## TODO: Alex resume here; data available on Google Drive:
 ## https://drive.google.com/drive/folders/1ZM8i8VZ8BcsxEdxWPE2S-AMO0JvQ9DRI?usp=sharing
@@ -134,7 +156,7 @@ LCC <- prepInputs(
 
 ## TODO: get the ArcGIS pieces scripted in R here
 
-LCCpoints <- Cache(rasterToPoints, x = LCC, progress = "text", cacheRepo = cacheDir)
+LCCpoints <- Cache(rasterToPoints, x = LCC, progress = "text")
 gc()
 
 LCCpoints2 <- as.data.frame(LCCpoints) ## TODO: use data.table (NOTE: weird issue with S4 conversion?)
