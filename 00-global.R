@@ -124,7 +124,6 @@ plot(predPrevAge)
 
 #####
 
-## I would like to create the dataset to predict in R. This is what I tried so far.
 LCC <- prepInputs(
   url = "https://drive.google.com/file/d/13bHz8XEW5sIBZ4Mn-4_hxg-iaWmDEnlO/",
   targetFile = "CAN_LC_2015_CAL_Clip1.tif", alsoExtract = "similar",
@@ -132,6 +131,7 @@ LCC <- prepInputs(
   destinationPath = inputDir
 )
 
+## NOTE: reprojecting rasters in memory requires ~110 GB RAM
 ba <- Cache(
   prepInputs,
   url = "https://drive.google.com/file/d/1aKCclzcKk8Aowj0kTK6oV36lAhJhIxJM/",
