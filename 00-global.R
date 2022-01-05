@@ -25,7 +25,7 @@ pkgs2 <- c(
 )
 Require(pkgs2) ## install if needed, and load/attach
 
-sptlPkgs <- c("rgdal", "sf", "terra", "raster") ## TODO: remove raster
+sptlPkgs <- c("rgdal", "sf", "terra", "raster", "rgeos") ## TODO: remove raster
 if (!all(sptlPkgs %in% rownames(installed.packages()))) {
   install.packages(sptlPkgs, repos = "https://cran.rstudio.com")
 
@@ -126,29 +126,36 @@ plot(predPrevAge)
 #####
 
 ## I would like to create the dataset to predict in R. This is what I tried so far.
-ba <- prepInputs(
-  url = "https://drive.google.com/file/d/1aKCclzcKk8Aowj0kTK6oV36lAhJhIxJM/",
-  targetFile = "CA_forest_basal_area_2015_ROF.tif",
-  fun = "raster::raster", ## TODO: use terra
-  destinationPath = inputDir
-)
-Tave <- prepInputs(
-  url = "https://drive.google.com/file/d/1HT0swKK22D59n47RbbBJAyC1qGlAGb-E/",
-  targetFile = "Normal_1981_2010_Tave_sm_ROF.tif",
-  fun = "raster::raster", ## TODO: use terra
-  destinationPath = inputDir
-)
-ecozone <- prepInputs(
-  url = "https://drive.google.com/file/d/1IwRayjkjOGFjIUDfCYyPsKmgx9MRGqKA/",
-  targetFile = "ecozones_PolygonToRaster21_C1.tif", alsoExtract = "similar",
-  fun = "raster::raster", ## TODO: use terra
-  destinationPath = inputDir
-)
 LCC <- prepInputs(
   url = "https://drive.google.com/file/d/13bHz8XEW5sIBZ4Mn-4_hxg-iaWmDEnlO/",
   targetFile = "CAN_LC_2015_CAL_Clip1.tif", alsoExtract = "similar",
   fun = "raster::raster", ## TODO: use terra
   destinationPath = inputDir
+)
+
+ba <- Cache(
+  prepInputs,
+  url = "https://drive.google.com/file/d/1aKCclzcKk8Aowj0kTK6oV36lAhJhIxJM/",
+  targetFile = "CA_forest_basal_area_2015_ROF.tif",
+  fun = "raster::raster", ## TODO: use terra
+  destinationPath = inputDir,
+  rasterToMatch = LCC
+)
+Tave <- Cache(
+  prepInputs,
+  url = "https://drive.google.com/file/d/1HT0swKK22D59n47RbbBJAyC1qGlAGb-E/",
+  targetFile = "Normal_1981_2010_Tave_sm_ROF.tif",
+  fun = "raster::raster", ## TODO: use terra
+  destinationPath = inputDir,
+  rasterToMatch = LCC
+)
+ecozone <- Cache(
+  prepInputs,
+  url = "https://drive.google.com/file/d/1IwRayjkjOGFjIUDfCYyPsKmgx9MRGqKA/",
+  targetFile = "ecozones_PolygonToRaster21_C1.tif", alsoExtract = "similar",
+  fun = "raster::raster", ## TODO: use terra
+  destinationPath = inputDir,
+  rasterToMatch = LCC
 )
 
 ### In ArcGis I have reprojected the rasters, but I am having problems in r (I have removed all my failure code)
@@ -179,7 +186,7 @@ gc()
 
 levels(LCCpoints4$LCC)[grepl("11|12|13", levels(LCCpoints4$LCC))] <- "11_12_13"
 
-coordinates(LCCpoints4) <- ~ x + y # my computer crash here
+coordinates(LCCpoints4) <- ~ x + y ## NOTE: needs ~80GB RAM
 
 rasStack <- stack(ba, Tave, ecozone)
 rasValue <- extract(rasStack, LCCpoints4)
