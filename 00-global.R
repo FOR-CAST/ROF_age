@@ -186,3 +186,7 @@ coordinates(LCCpoints4) <- ~ x + y ## NOTE: needs ~80GB RAM
 
 rasStack <- stack(ba, Tave, ecozone)
 rasValue <- extract(rasStack, LCCpoints4)
+f <- file.path(outputDir, "rasValue.qs")
+qs::qsave(rasValue, f)
+drive_put(f, as_id("1ZM8i8VZ8BcsxEdxWPE2S-AMO0JvQ9DRI"), name = basename(f))
+gc()
