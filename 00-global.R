@@ -131,7 +131,7 @@ LCC <- prepInputs(
   destinationPath = inputDir
 )
 
-## NOTE: reprojecting rasters in memory requires ~110 GB RAM
+## NOTE: reprojecting rasters in memory requires ~140 GB RAM
 ba <- Cache(
   prepInputs,
   url = "https://drive.google.com/file/d/1aKCclzcKk8Aowj0kTK6oV36lAhJhIxJM/",
