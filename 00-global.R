@@ -134,8 +134,7 @@ LCC <- prepInputs(
 
 ## TODO: get the ArcGIS pieces scripted in R here
 
-gc()
-LCCpoints <- rasterToPoints(LCC, progress = "text")
+LCCpoints <- Cache(rasterToPoints, x = LCC, progress = "text", cacheRepo = cacheDir)
 gc()
 
 LCCpoints2 <- as.data.frame(LCCpoints) ## TODO: use data.table (NOTE: weird issue with S4 conversion?)
@@ -151,9 +150,10 @@ summary(LCCpoints3$LCC)
 rm(LCCpoints2)
 gc()
 
-LCCpoints4 <- subset(LCCpoints3, LCC != "0" & LCC != "9")
+LCCpoints4 <- subset(LCCpoints3, !(LCC %in% c("0", "9")))
 summary(LCCpoints4$LCC)
 rm(LCCpoints3)
+gc()
 
 levels(LCCpoints4$LCC)[grepl("11|12|13", levels(LCCpoints4$LCC))] <- "11_12_13"
 
