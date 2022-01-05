@@ -76,7 +76,7 @@ summary(newdataset$ecozone)
 levels(newdataset$LCC)[levels(newdataset$LCC) == "11"] <- "11_12_13"
 levels(newdataset$LCC)[levels(newdataset$LCC) == "12"] <- "11_12_13"
 levels(newdataset$LCC)[levels(newdataset$LCC) == "13"] <- "11_12_13"
-newdataset <- subset(newdataset, LCC != "3" & LCC != "4" & LCC != "7" & LCC != "15" & LCC != "16" & LCC != "17" & LCC != "18" & LCC != "9")
+newdataset <- subset(newdataset, !(LCC %in% c("3", "4", "7", "15", "16", "17", "18", "9"))) ## TODO: confirm it's 9 and not 19
 summary(newdataset$LCC)
 levels(newdataset$ecozone)[levels(newdataset$ecozone) == "10"] <- "BOREAL SHIELD"
 levels(newdataset$ecozone)[levels(newdataset$ecozone) == "11"] <- "HUDSON PLAIN"
@@ -99,37 +99,60 @@ plot(predPrevAge)
 #####
 
 ## I would like to create the dataset to predict in R. This is what I tried so far.
-ba <- raster(file.path(inputDir, "CA_forest_basal_area_2015_ROF.tif"))
-Tave <- raster(file.path(inputDir, "Normal_1981_2010_Tave_sm_ROF.tif"))
-ecozone <- raster(file.path(inputDir, "ecozones_PolygonToRaster21_C1.tif"))
-LCC <- raster(file.path(inputDir, "CAN_LC_2015_CAL_Clip1.tif"))
+ba <- prepInputs(
+  url = "https://drive.google.com/file/d/1aKCclzcKk8Aowj0kTK6oV36lAhJhIxJM/",
+  targetFile = "CA_forest_basal_area_2015_ROF.tif",
+  fun = "raster::raster", ## TODO: use terra
+  destinationPath = inputDir
+)
+Tave <- prepInputs(
+  url = "https://drive.google.com/file/d/1HT0swKK22D59n47RbbBJAyC1qGlAGb-E/",
+  targetFile = "Normal_1981_2010_Tave_sm_ROF.tif",
+  fun = "raster::raster", ## TODO: use terra
+  destinationPath = inputDir
+)
+ecozone <- prepInputs(
+  url = "https://drive.google.com/file/d/1IwRayjkjOGFjIUDfCYyPsKmgx9MRGqKA/",
+  targetFile = "ecozones_PolygonToRaster21_C1.tif", alsoExtract = "similar",
+  fun = "raster::raster", ## TODO: use terra
+  destinationPath = inputDir
+)
+LCC <- prepInputs(
+  url = "https://drive.google.com/file/d/13bHz8XEW5sIBZ4Mn-4_hxg-iaWmDEnlO/",
+  targetFile = "CAN_LC_2015_CAL_Clip1.tif", alsoExtract = "similar",
+  fun = "raster::raster", ## TODO: use terra
+  destinationPath = inputDir
+)
 
 ### In ArcGis I have reprojected the rasters, but I am having problems in r (I have removed all my failure code)
 # the idea was to extract the values of the rasters for the layer of points of LCC
 
 ## TODO: get the ArcGIS pieces scripted in R here
 
-rasStack <- stack(ba, Tave, ecozone)
-
 gc()
-memory.limit(1e+100)
 LCCpoints <- rasterToPoints(LCC, progress = "text")
-LCCpoints2 <- as.data.frame(LCCpoints)
+gc()
+
+LCCpoints2 <- as.data.frame(LCCpoints) ## TODO: use data.table (NOTE: weird issue with S4 conversion?)
+colnames(LCCpoints2) <- c("x", "y", "LCC")
 str(LCCpoints2)
 head(LCCpoints2)
-colnames(LCCpoints2)[3] <- "LCC"
-LCCpoints3 <- subset(LCCpoints2, LCC < 15)
 rm(LCCpoints)
-rm(LCCpoints2)
+gc()
+
+LCCpoints3 <- subset(LCCpoints2, LCC < 15)
 LCCpoints3$LCC <- as.factor(LCCpoints3$LCC)
 summary(LCCpoints3$LCC)
+rm(LCCpoints2)
+gc()
+
 LCCpoints4 <- subset(LCCpoints3, LCC != "0" & LCC != "9")
 summary(LCCpoints4$LCC)
 rm(LCCpoints3)
-levels(LCCpoints4$LCC)[levels(LCCpoints4$LCC) == "11"] <- "11_12_13"
-levels(LCCpoints4$LCC)[levels(LCCpoints4$LCC) == "12"] <- "11_12_13"
-levels(LCCpoints4$LCC)[levels(LCCpoints4$LCC) == "13"] <- "11_12_13"
+
+levels(LCCpoints4$LCC)[grepl("11|12|13", levels(LCCpoints4$LCC))] <- "11_12_13"
 
 coordinates(LCCpoints4) <- ~ x + y # my computer crash here
 
+rasStack <- stack(ba, Tave, ecozone)
 rasValue <- extract(rasStack, LCCpoints4)
