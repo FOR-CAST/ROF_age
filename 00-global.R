@@ -53,7 +53,7 @@ opts <- options(
   "reproducible.showSimilar" = TRUE,
   "reproducible.useCache" = TRUE,
   "reproducible.useCloud" = TRUE,
-  "reproducible.useGDAL" = FALSE, ## TODO: can't use true until system call bugs are resolved
+  "reproducible.useGDAL" = "force", ## one of FALSE, TRUE, "force"
   "reproducible.useMemoise" = FALSE
 )
 
@@ -131,7 +131,7 @@ LCC <- prepInputs(
   destinationPath = inputDir
 )
 
-## NOTE: reprojecting rasters in memory requires ~140 GB RAM
+## NOTE: reprojecting rasters in memory requires too much RAM to not use GDAL (see options above)
 ba <- Cache(
   prepInputs,
   url = "https://drive.google.com/file/d/1aKCclzcKk8Aowj0kTK6oV36lAhJhIxJM/",
