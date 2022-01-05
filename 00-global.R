@@ -25,7 +25,7 @@ sptlPkgs <- c("rgdal", "sf", "terra", "raster") ## TODO: remove raster
 if (!all(sptlPkgs %in% rownames(installed.packages()))) {
   install.packages(sptlPkgs, repos = "https://cran.rstudio.com")
 
-  sf::sf_extSoftVersion() ## want GEOS 3.9.0, GDAL 3.2.1, PROJ 7.2.1
+  sf::sf_extSoftVersion() ## want GEOS 3.9.0, GDAL 3.2.1, PROJ 7.2.1 or higher
 }
 Require(sptlPkgs)
 
@@ -55,7 +55,7 @@ modage2 <- bam(TSLF ~ s(total_BA) + ecozone + LCC + s(total_BA, by = ecozone) + 
                #select = TRUE, ## Error: cannot allocate vector of size 123559.1 Gb
                data = plot3, method = "fREML", family = negbin(3.416129), discrete = TRUE)
 summary(modage2)
-gam.check(modage2) #
+gam.check(modage2)
 
 ## TODO: script dataset creation in R instead of pre-making in ArcMap (resolution 1 x 1 km)
 f2 <- file.path(inputDir, "TaveMultiPoints.txt")
@@ -88,12 +88,17 @@ cor.test(newdataset$PreviusStandAge, newdataset$predictstack)
 hist((newdataset$PreviusStandAge))
 #write.csv(newdataset,"Predictions.csv") ## exported the dataset and created the raster in ArcMap
 
-## TODO: zip raster-related files, reupload as zip, and use prepInputs()
-f3 <- file.path(inputDir, "Predictions_PointToRaster1.tif")
+f3 <- file.path(inputDir, "Predictions_PointToRaster1.tif") ## TODO: need this raster in gdrive
 predAge <- raster(f3)
 plot(predAge)
 
-predPrevAge <- raster(file.path(inputDir, "standAgeMap_it_1_ts_2011_ProROF.tif")) # This is the previous layer of Stand Age, is very different compared to the new one.
+## This is the previous layer of Stand Age, is very different compared to the new one.
+predPrevAge <- prepInputs(
+  url = "https://drive.google.com/file/d/14zxLiW_XVoOeLILi9bqpdTtDzOw4JyuP/",
+  targetFile = "standAgeMap_it_1_ts_2011_ProROF.tif",
+  fun = "raster::raster", ## TODO: use terra
+  destinationPath = inputDir
+)
 plot(predPrevAge)
 
 #####
