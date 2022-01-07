@@ -190,3 +190,11 @@ f <- file.path(outputDir, "rasValue.qs")
 qs::qsave(rasValue, f)
 drive_put(f, as_id("1ZM8i8VZ8BcsxEdxWPE2S-AMO0JvQ9DRI"), name = basename(f))
 gc()
+
+### get revised age layer (previously created by Raquel)
+age_new <- prepInputs(
+  url = "https://drive.google.com/file/d/1pxApvFABso78ihpWmONlbygPv1NcI96Q/",
+  fun = "raster::raster", ## TODO: use terra
+  destinationPath = inputDir,
+  rasterToMatch = LCC
+)
