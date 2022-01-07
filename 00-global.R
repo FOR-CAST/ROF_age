@@ -17,7 +17,7 @@ pkgs1 <- c( ## TODO: remove unused packages
   "data.table", "DHARMa", "effects", "foreign", "gamlss", "ggplot2", "ggpubr",
   "lme4", "lmerTest", "mgcv",
   "dplyr", "readr", "tidyverse", ## TODO: remove these in favour of data.table
-  "performance", "qs", "splines"
+  "performance", "qs", "RCurl", "splines", "styler"
 )
 Require(pkgs1, Require = FALSE) ## don't load/attach yet, just ensure these get installed
 
@@ -58,12 +58,14 @@ opts <- options(
   "reproducible.useMemoise" = FALSE
 )
 
-## TODO: Alex resume here; data available on Google Drive:
-## https://drive.google.com/drive/folders/1ZM8i8VZ8BcsxEdxWPE2S-AMO0JvQ9DRI?usp=sharing
+## NOTE: data available on Google Drive
+##   https://drive.google.com/drive/folders/1ZM8i8VZ8BcsxEdxWPE2S-AMO0JvQ9DRI
 
 ## run the model
 f1 <- file.path(inputDir, "FinalAllAgeDataset2.txt")
-drive_download(as_id("13R7YW9RpxVQ6u-h4qGQhXDpQp76Umbva"), path = f1, overwrite = TRUE)
+if (!file.exists(f1)) {
+  drive_download(as_id("13R7YW9RpxVQ6u-h4qGQhXDpQp76Umbva"), path = f1) #, overwrite = TRUE)
+}
 plot3 <- read.table(f1, header = TRUE, sep = " ", fill = TRUE, dec = ".") # the dataset of ground plots
 plot3$ecozone <- as.factor(as.character(plot3$ecozone))
 summary(plot3$ecozone)
@@ -110,8 +112,12 @@ cor.test(newdataset$PreviusStandAge, newdataset$predictstack)
 hist((newdataset$PreviusStandAge))
 #write.csv(newdataset,"Predictions.csv") ## exported the dataset and created the raster in ArcMap
 
-f3 <- file.path(inputDir, "Predictions_PointToRaster1.tif") ## TODO: need this raster in gdrive
-predAge <- raster(f3)
+predAge <- prepInputs(
+  url = "https://drive.google.com/file/d/1pxApvFABso78ihpWmONlbygPv1NcI96Q/",
+  targetFile = "Predictions_PointToRaster1.tif",
+  fun = "raster::raster", ## TODO: use terra
+  destinationPath = inputDir
+)
 plot(predAge)
 
 ## This is the previous layer of Stand Age, is very different compared to the new one.
@@ -126,7 +132,7 @@ plot(predPrevAge)
 # add the values of the previous Age layer to datasets of ground plots
 colnames(plot3)
 plot4 <- plot3
-coordinates(plot4) <- ~ longitude + latitude ## NOTE: heavy RAM usage
+coordinates(plot4) <- ~ longitude + latitude
 rasValue <- extract(predPrevAge, plot4) ## TODO: object 'rasValue' is overwritten below!
 plot4 <- as.data.frame(cbind(plot4, rasValue))
 colnames(plot4)[11] <- "PrevAge"
@@ -146,7 +152,7 @@ Fig1 <- ggplot(plot4, aes(y = TSLF, x = exp(predictAge))) +
   theme_bw() +
   theme(legend.position = "right")
 Fig1
-cor.test(exp(plot4$predictAge), plot4$TSLF) # significant
+cor.test(exp(plot4$predictAge), plot4$TSLF) ## significant
 
 # ROF region
 plot5 <- na.omit(plot4)
@@ -164,7 +170,7 @@ Fig2 <- ggplot(plot5, aes(y = TSLF, x = exp(predictAge))) +
   theme_bw() +
   theme(legend.position = "right")
 Fig2
-cor.test(exp(plot5$predictAge), plot5$TSLF) # significant
+cor.test(exp(plot5$predictAge), plot5$TSLF) ## significant
 
 # Predicted vs Observed for the ROF region--> old Age layer
 Fig3 <- ggplot(plot5, aes(y = TSLF, x = PrevAge)) +
@@ -179,7 +185,7 @@ Fig3 <- ggplot(plot5, aes(y = TSLF, x = PrevAge)) +
   theme_bw() +
   theme(legend.position = "right")
 Fig3
-cor.test(exp(plot5$PrevAge), plot5$TSLF) # no significant
+cor.test(exp(plot5$PrevAge), plot5$TSLF) ## non-significant
 
 ggarrange(Fig2, Fig3, labels = "AUTO")
 
@@ -251,11 +257,3 @@ f <- file.path(outputDir, "rasValue.qs")
 qs::qsave(rasValue, f)
 drive_put(f, as_id("1ZM8i8VZ8BcsxEdxWPE2S-AMO0JvQ9DRI"), name = basename(f))
 gc()
-
-### get revised age layer (previously created by Raquel)
-age_new <- prepInputs(
-  url = "https://drive.google.com/file/d/1pxApvFABso78ihpWmONlbygPv1NcI96Q/",
-  fun = "raster::raster", ## TODO: use terra
-  destinationPath = inputDir,
-  rasterToMatch = LCC
-)
