@@ -100,7 +100,7 @@ summary(newdataset$ecozone)
 levels(newdataset$LCC)[levels(newdataset$LCC) == "11"] <- "11_12_13"
 levels(newdataset$LCC)[levels(newdataset$LCC) == "12"] <- "11_12_13"
 levels(newdataset$LCC)[levels(newdataset$LCC) == "13"] <- "11_12_13"
-newdataset <- subset(newdataset, !(LCC %in% c("3", "4", "7", "15", "16", "17", "18", "9"))) ## TODO: confirm it's 9 and not 19
+newdataset <- subset(newdataset, !(LCC %in% c("3", "4", "7", "9", "15", "16", "17", "18")))
 summary(newdataset$LCC)
 levels(newdataset$ecozone)[levels(newdataset$ecozone) == "10"] <- "BOREAL SHIELD"
 levels(newdataset$ecozone)[levels(newdataset$ecozone) == "11"] <- "HUDSON PLAIN"
