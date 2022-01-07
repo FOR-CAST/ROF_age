@@ -13,8 +13,9 @@ if (!suppressWarnings(require("Require"))) {
   library(Require)
 }
 
-pkgs1 <- c(
-  "data.table", "DHARMa", "effects", "foreign", "gamlss", "ggplot2", "lme4", "lmerTest", "mgcv",
+pkgs1 <- c( ## TODO: remove unused packages
+  "data.table", "DHARMa", "effects", "foreign", "gamlss", "ggplot2", "ggpubr",
+  "lme4", "lmerTest", "mgcv",
   "dplyr", "readr", "tidyverse", ## TODO: remove these in favour of data.table
   "performance", "qs", "splines"
 )
@@ -121,6 +122,66 @@ predPrevAge <- prepInputs(
   destinationPath = inputDir
 )
 plot(predPrevAge)
+
+# add the values of the previous Age layer to datasets of ground plots
+colnames(plot3)
+plot4 <- plot3
+coordinates(plot4) <- ~ longitude + latitude ## NOTE: heavy RAM usage
+rasValue <- extract(predPrevAge, plot4) ## TODO: object 'rasValue' is overwritten below!
+plot4 <- as.data.frame(cbind(plot4, rasValue))
+colnames(plot4)[11] <- "PrevAge"
+
+plot4$predictAge <- predict(modage2, plot4)
+
+# Predicted vs Observed all ecozones included--> new Age layer
+Fig1 <- ggplot(plot4, aes(y = TSLF, x = exp(predictAge))) +
+  geom_point() +
+  ggtitle("Plot age") +
+  ylab("Observed (Years)") +
+  xlab("Predicted (Years)") +
+  geom_smooth(method = lm, se = F, size = 1) +
+  xlim(0, 300) +
+  ylim(0, 300) +
+  facet_wrap(~ecozone) +
+  theme_bw() +
+  theme(legend.position = "right")
+Fig1
+cor.test(exp(plot4$predictAge), plot4$TSLF) # significant
+
+# ROF region
+plot5 <- na.omit(plot4)
+
+# Predicted vs Observed for the ROF region--> new Age layer
+Fig2 <- ggplot(plot5, aes(y = TSLF, x = exp(predictAge))) +
+  geom_point() +
+  ggtitle("ROF region -NEW Age layer-") +
+  ylab("Observed (Years)") +
+  xlab("Predicted (Years)") +
+  geom_smooth(method = lm, se = F, size = 1) +
+  xlim(0, 200) +
+  ylim(0, 200) +
+  facet_wrap(~ecozone) +
+  theme_bw() +
+  theme(legend.position = "right")
+Fig2
+cor.test(exp(plot5$predictAge), plot5$TSLF) # significant
+
+# Predicted vs Observed for the ROF region--> old Age layer
+Fig3 <- ggplot(plot5, aes(y = TSLF, x = PrevAge)) +
+  geom_point() +
+  ggtitle("ROF region -Previous Age layer-") +
+  ylab("Observed (Years)") +
+  xlab("Predicted (Years)") +
+  geom_smooth(method = lm, se = F, size = 1) +
+  xlim(0, 200) +
+  ylim(0, 200) +
+  facet_wrap(~ecozone) +
+  theme_bw() +
+  theme(legend.position = "right")
+Fig3
+cor.test(exp(plot5$PrevAge), plot5$TSLF) # no significant
+
+ggarrange(Fig2, Fig3, labels = "AUTO")
 
 #####
 
