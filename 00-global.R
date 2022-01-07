@@ -139,7 +139,7 @@ Fig1 <- ggplot(plot4, aes(y = TSLF, x = exp(predictAge))) +
   ggtitle("Plot age") +
   ylab("Observed (Years)") +
   xlab("Predicted (Years)") +
-  geom_smooth(method = lm, se = F, size = 1) +
+  geom_smooth(method = lm, se = FALSE, size = 1) +
   xlim(0, 300) +
   ylim(0, 300) +
   facet_wrap(~ecozone) +
@@ -157,7 +157,7 @@ Fig2 <- ggplot(plot5, aes(y = TSLF, x = exp(predictAge))) +
   ggtitle("ROF region -NEW Age layer-") +
   ylab("Observed (Years)") +
   xlab("Predicted (Years)") +
-  geom_smooth(method = lm, se = F, size = 1) +
+  geom_smooth(method = lm, se = FALSE, size = 1) +
   xlim(0, 200) +
   ylim(0, 200) +
   facet_wrap(~ecozone) +
@@ -172,7 +172,7 @@ Fig3 <- ggplot(plot5, aes(y = TSLF, x = PrevAge)) +
   ggtitle("ROF region -Previous Age layer-") +
   ylab("Observed (Years)") +
   xlab("Predicted (Years)") +
-  geom_smooth(method = lm, se = F, size = 1) +
+  geom_smooth(method = lm, se = FALSE, size = 1) +
   xlim(0, 200) +
   ylim(0, 200) +
   facet_wrap(~ecozone) +
