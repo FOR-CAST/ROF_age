@@ -1,7 +1,7 @@
 if (!exists("pkgDir")) {
   pkgDir <- file.path("packages", version$platform, paste0(version$major, ".",
                                                            strsplit(version$minor, "[.]")[[1]][1]))
-
+  
   if (!dir.exists(pkgDir)) {
     dir.create(pkgDir, recursive = TRUE)
   }
@@ -29,7 +29,7 @@ Require(pkgs2) ## install if needed, and load/attach
 sptlPkgs <- c("rgdal", "sf", "terra", "raster", "rgeos") ## TODO: remove raster
 if (!all(sptlPkgs %in% rownames(installed.packages()))) {
   install.packages(sptlPkgs, repos = "https://cran.rstudio.com")
-
+  
   sf::sf_extSoftVersion() ## want GEOS 3.9.0, GDAL 3.2.1, PROJ 7.2.1 or higher
 }
 Require(sptlPkgs)
@@ -61,7 +61,7 @@ opts <- options(
 ## NOTE: data available on Google Drive
 ##   https://drive.google.com/drive/folders/1ZM8i8VZ8BcsxEdxWPE2S-AMO0JvQ9DRI
 
-## run the model
+# input data#####
 f1 <- file.path(inputDir, "FinalAllAgeDataset2.txt")
 if (!file.exists(f1)) {
   drive_download(as_id("13R7YW9RpxVQ6u-h4qGQhXDpQp76Umbva"), path = f1) #, overwrite = TRUE)
@@ -72,14 +72,177 @@ summary(plot3$ecozone)
 plot3$LCC <- as.factor(as.character(plot3$LCC))
 summary(plot3$LCC)
 
+## Loading the raster layers clipped for the ROF
+#####
+
+LCC <- prepInputs(
+  url = "https://drive.google.com/file/d/13bHz8XEW5sIBZ4Mn-4_hxg-iaWmDEnlO/",
+  targetFile = "CAN_LC_2015_CAL_Clip1.tif", alsoExtract = "similar",
+  fun = "raster::raster", ## TODO: use terra
+  destinationPath = inputDir
+)
+
+## NOTE: reprojecting rasters in memory requires too much RAM to not use GDAL (see options above)
+ba <- Cache(
+  prepInputs,
+  url = "https://drive.google.com/file/d/1aKCclzcKk8Aowj0kTK6oV36lAhJhIxJM/",
+  targetFile = "CA_forest_basal_area_2015_ROF.tif",
+  fun = "raster::raster", ## TODO: use terra
+  destinationPath = inputDir,
+  rasterToMatch = LCC
+)
+
+Tave <- Cache(
+  prepInputs,
+  url = "https://drive.google.com/file/d/1HT0swKK22D59n47RbbBJAyC1qGlAGb-E/",
+  targetFile = "Normal_1981_2010_Tave_sm_ROF.tif",
+  fun = "raster::raster", ## TODO: use terra
+  destinationPath = inputDir,
+  rasterToMatch = LCC
+)
+
+ecozone <- Cache(
+  prepInputs,
+  url = "https://drive.google.com/file/d/1IwRayjkjOGFjIUDfCYyPsKmgx9MRGqKA/",
+  targetFile = "ecozones_PolygonToRaster21_C1.tif", alsoExtract = "similar",
+  fun = "raster::raster", ## TODO: use terra
+  destinationPath = inputDir,
+  rasterToMatch = LCC
+)
+
+predPrevAge <- prepInputs(
+  url = "https://drive.google.com/file/d/14zxLiW_XVoOeLILi9bqpdTtDzOw4JyuP/",
+  targetFile = "standAgeMap_it_1_ts_2011_ProROF.tif",
+  fun = "raster::raster", ## TODO: use terra
+  destinationPath = inputDir,
+  rasterToMatch = LCC
+)
+
+## Loading the raster layers for Canada# I am not gonna do it right now because my computer is extremely slow.
+#####
+
+# The original file can be found in file from https://open.canada.ca/data/en/dataset/4e615eae-b90c-420b-adee-2ca35896caf6
+LCC_CA <- prepInputs(
+  url = "https://drive.google.com/file/d/13bHz8XEW5sIBZ4Mn-4_hxg-iaWmDEnlO/",
+  targetFile = "CAN_LC_2015_CAL.tif", alsoExtract = "similar",
+  fun = "raster::raster", ## TODO: use terra
+  destinationPath = inputDir
+)
+
+# The original file can be found in from https://open.canada.ca/data/en/dataset/4c0d9755-9347-42f2-bb1b-f4d2ff673254
+ba_CA <- Cache(
+  prepInputs,
+  url = "https://drive.google.com/file/d/1aKCclzcKk8Aowj0kTK6oV36lAhJhIxJM/",
+  targetFile = "CA_forest_basal_area_2015_NN.tif",
+  fun = "raster::raster", ## TODO: use terra
+  destinationPath = inputDir,
+  rasterToMatch = LCC
+)
+
+# The original file can be found in https://adaptwest.databasin.org/pages/adaptwest-climatena/
+Tave_CA <- Cache(
+  prepInputs,
+  url = "https://drive.google.com/file/d/1HT0swKK22D59n47RbbBJAyC1qGlAGb-E/",
+  targetFile = "Normal_1981_2010_Tave_sm.tif",
+  fun = "raster::raster", ## TODO: use terra
+  destinationPath = inputDir,
+  rasterToMatch = LCC
+)
+
+# Alex I cannot load the shapefiles from google drive, Can you help with this? thanks. If I use my directory it works
+#setwd("C:/Users/Raquel/Dropbox/Working/FIRES_ONTARIO/Goverment/Data/Ecoregions/ecozone_shp/Ecozones")# remove after loading from google drive
+#getwd()
+ecozones_CA <- st_read("ecozones.shp")# the layer is in google drive
+ecozones_CA
+
+# transfor the ecozone layer to raster. I was trying to use this package, but let me know which one you prefer to do this. 
+
+library(fasterize)
+ecozones_CA_raster<-fasterize(
+  ecozones_CA,
+  ba_CA,
+  field = "ZONE_NAME",fun="sum")
+
+#setwd("C:/Users/Raquel/Dropbox/Working/FIRES_ONTARIO/Goverment/Data/ROF_RA_def")# remove after loading from google drive
+#getwd()
+ROF<- st_read("ROF_RA_def_50km_buff.shp")# the layer is in google drive
+
+# Here we will clip the raster with the ROF shapefile.I 
+
+# Here we reduce the resolution of the rasters to a 1 x 1 km resolution. My computer crash with this process, Can you please run it for me? THANKS
+res(LCC)
+res(ba)
+res(Tave)
+
+LCC_1km<-raster::aggregate(LCC,fact=25)# 750 m resolution save it please
+res(LCC_1km)
+f3 <- file.path(inputDir, "LCC_1km.tif")# not sure if this is right
+writeRaster(LCC_1km, f3, overwrite=FALSE)
+
+ba_1km<-raster::aggregate(ba,fact=25)# 750 m resolution save it please
+res(ba_1km)
+f4 <- file.path(inputDir, "ba_1km.tif")# not sure if this is right
+writeRaster(ba_1km, f4, overwrite=FALSE)
+
+Tave_1km<-raster::aggregate(Tave,fact=25)# 750 m resolution save it please
+res(Tave_1km)
+f5 <- file.path(inputDir, "Tave_1km.tif")# not sure if this is right
+writeRaster(Tave_1km, f5, overwrite=FALSE)
+
+# the model#####
 ## NOTE: need too much RAM to run below with the parameter select=TRUE
-modage2 <- bam(TSLF ~ s(total_BA) + ecozone + LCC + s(total_BA, by = ecozone) + s(total_BA, by = LCC) +
-                 s(longitude, latitude, bs = "gp", k = 100, m = 2) + s(Tave_sm) + ti(total_BA, Tave_sm) +
-                 s(year_BA, bs = "re"),
-               #select = TRUE, ## Error: cannot allocate vector of size 123559.1 Gb
-               data = plot3, method = "fREML", family = negbin(3.416129), discrete = TRUE)
+modage2 <- bam(log(TSLF)  ~ s(total_BA) +ti(total_BA, Tave_sm)+s(total_BA, by = LCC) + s(Tave_sm, by = LCC) + 
+                 s(longitude, latitude, bs = "gp", k = 100, m = 2) +s(Tave_sm)+s(ecozone,bs="re")+
+                 ti(longitude,total_BA)+ti(latitude,total_BA),
+               data = plot3, method = "fREML", drop.intercept = FALSE)
+AIC(modage2)
 summary(modage2)
-gam.check(modage2)
+x11(width=40, height=20, pointsize=12)
+par(mfrow=c(2,2), mar=c(4,4,2,1))
+gam.check(modage2,rep=100)#
+
+dev.off()
+
+plot3$predictAge<-predict(modage2,plot3)#
+FigHist<-ggplot(plot3, aes(x=TSLF)) + xlim(0,300)+
+  geom_histogram()+ylab("Observed (Years)")+xlab("Predicted (Years)")+
+  facet_wrap(~ecozone,ncol=1)+ggtitle("Plot age -Input data-")+
+  theme_bw()
+FigHist2<-ggplot(plot3, aes(x=exp(predictAge))) + xlim(0,300)+
+  geom_histogram(fill="brown4")+ylab("Observed (Years)")+xlab("Predicted (Years)")+
+  facet_wrap(~ecozone,ncol=1)+ggtitle("Plot age -Predicted values-")+
+  theme_bw()
+ggarrange(FigHist, FigHist2)# the ring of fire is in the Boreal Shield. The model is not good at predicting younger ages for this ecozone
+
+#Predicted vs Observed all ecozones included--> new Age layer
+cor.test(exp(plot3$predictAge),plot3$TSLF)# 
+Fig1<-ggplot(plot3, aes(y=TSLF, x=exp(predictAge))) + 
+  geom_point()+ggtitle("Plot age")+ylab("Observed (Years)")+xlab("Predicted (Years)")+
+  geom_smooth(method=lm,se=F,size=1)+xlim(0,300)+ylim(0,300)+
+  facet_wrap(~ecozone)+
+  theme_bw()
+Fig1
+
+#ROF region
+plot4<-plot3
+coordinates(plot4)= ~ longitude+latitude 
+rasValue0=raster::extract(predPrevAge,plot4)
+plot4=as.data.frame(cbind(plot4,rasValue0))
+colnames(plot4)[12]<-"PrevAge"
+plot5<-na.omit(plot4)
+
+# to do a fair comparison, we need to remove the plots after 2011, because the previous age layer
+plot5<-subset(plot5, year_BA<2012)
+
+#Predicted vs Observed for the ROF region--> new Age layer
+cor.test(exp(plot5$predictAge),plot5$TSLF)# significant
+Fig2<-ggplot(plot5, aes(y=TSLF, x=exp(predictAge))) + 
+  geom_point()+ggtitle("ROF region -NEW Age layer-")+ylab("Observed (Years)")+xlab("Predicted (Years)")+
+  geom_smooth(method=lm,se=F,size=1)+xlim(0,200)+ylim(0,200)+
+  facet_wrap(~ecozone)+
+  annotate("text", x=20,y=200, label = "r=0.46, p<0.001",hjust = 0, vjust = 0,fontface=1,size=4)+
+  theme_bw()
+Fig2
 
 ## TODO: script dataset creation in R instead of pre-making in ArcMap (resolution 1 x 1 km)
 f2 <- file.path(inputDir, "TaveMultiPoints.txt")
@@ -120,14 +283,6 @@ predAge <- prepInputs(
 )
 plot(predAge)
 
-## This is the previous layer of Stand Age, is very different compared to the new one.
-predPrevAge <- prepInputs(
-  url = "https://drive.google.com/file/d/14zxLiW_XVoOeLILi9bqpdTtDzOw4JyuP/",
-  targetFile = "standAgeMap_it_1_ts_2011_ProROF.tif",
-  fun = "raster::raster", ## TODO: use terra
-  destinationPath = inputDir
-)
-plot(predPrevAge)
 
 # add the values of the previous Age layer to datasets of ground plots
 colnames(plot3)
@@ -189,42 +344,7 @@ cor.test(exp(plot5$PrevAge), plot5$TSLF) ## non-significant
 
 ggarrange(Fig2, Fig3, labels = "AUTO")
 
-#####
 
-LCC <- prepInputs(
-  url = "https://drive.google.com/file/d/13bHz8XEW5sIBZ4Mn-4_hxg-iaWmDEnlO/",
-  targetFile = "CAN_LC_2015_CAL_Clip1.tif", alsoExtract = "similar",
-  fun = "raster::raster", ## TODO: use terra
-  destinationPath = inputDir
-)
-
-## NOTE: reprojecting rasters in memory requires too much RAM to not use GDAL (see options above)
-ba <- Cache(
-  prepInputs,
-  url = "https://drive.google.com/file/d/1aKCclzcKk8Aowj0kTK6oV36lAhJhIxJM/",
-  targetFile = "CA_forest_basal_area_2015_ROF.tif",
-  fun = "raster::raster", ## TODO: use terra
-  destinationPath = inputDir,
-  rasterToMatch = LCC
-)
-
-Tave <- Cache(
-  prepInputs,
-  url = "https://drive.google.com/file/d/1HT0swKK22D59n47RbbBJAyC1qGlAGb-E/",
-  targetFile = "Normal_1981_2010_Tave_sm_ROF.tif",
-  fun = "raster::raster", ## TODO: use terra
-  destinationPath = inputDir,
-  rasterToMatch = LCC
-)
-
-ecozone <- Cache(
-  prepInputs,
-  url = "https://drive.google.com/file/d/1IwRayjkjOGFjIUDfCYyPsKmgx9MRGqKA/",
-  targetFile = "ecozones_PolygonToRaster21_C1.tif", alsoExtract = "similar",
-  fun = "raster::raster", ## TODO: use terra
-  destinationPath = inputDir,
-  rasterToMatch = LCC
-)
 
 LCCpoints <- Cache(rasterToPoints, x = LCC, progress = "text")
 gc()
