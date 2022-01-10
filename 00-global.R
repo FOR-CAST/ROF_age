@@ -160,17 +160,31 @@ if (lowMemory) {
     rasterToMatch = LCC
   )
 
-  ## 1 km resolution from https://adaptwest.databasin.org/pages/adaptwest-climatena/
-  ## TODO: get finer resolution rasters using ClimateNA desktop app;
-  ## saved here: https://drive.google.com/file/d/1zLwrWgiuoB1L-NlXhJuoMczTp9Eb4WiU/
   Tave <- Cache(
     prepInputs,
-    url = "https://s3-us-west-2.amazonaws.com/www.cacpd.org/CMIP6/normals/Normal_1981_2010_monthly.zip",
-    targetFile = "Normal_1981_2010_Tave_sm.tif", alsoExtract = "similar", ## TODO: wrong filename!!!
+    url = "https://s3-us-west-2.amazonaws.com/www.cacpd.org/CMIP6/normals/Normal_1981_2010_bioclim.zip",
+    targetFile = "Normal_1981_2010_Tave_sm.tif", alsoExtract = "similar",
     fun = "raster::raster",
     destinationPath = inputDir,
     rasterToMatch = LCC
   )
+
+  ## TODO: use finer-resolution climate data from ClimateNA desktop app:
+  # ft <- "Normal_1981_2010S/Tave_sm.asc"
+  # fz <- file.path(inputDir, "Normal_1981_2010S.zip")
+  # if (!file.exists(f)) {
+  #   drive_download(as_id("1d5wtRQGjHje6aE5ghDaAp9mzuGFkmWoA"), fz)
+  #   unzip(fz, files = file.path(inputDir, ft))
+  # }
+  #
+  # Tave <- raster(file.path(inputDir, basename(ft)))
+  # crs(Tave) <- "EPSG:4326"
+  # Tave <- Cache(
+  #   postProcess,
+  #   x = Tave,
+  #   destinationPath = inputDir,
+  #   rasterToMatch = LCC
+  # )
 
   ecozone_shp <- prepInputs(
     url = "https://sis.agr.gc.ca/cansis/nsdb/ecostrat/zone/ecozone_shp.zip",
