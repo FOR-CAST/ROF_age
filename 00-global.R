@@ -217,10 +217,10 @@ modage2 <- bam(
 AIC(modage2)
 summary(modage2)
 
-#x11(width = 40, height = 20, pointsize = 12)
+dev.new(width = 40, height = 20, pointsize = 12)
 par(mfrow = c(2, 2), mar = c(4, 4, 2, 1))
 gam.check(modage2, rep = 100)
-#dev.off()
+dev.off()
 
 ## TODO: remove duplicate code below / cleanup
 
