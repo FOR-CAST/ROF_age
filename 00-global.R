@@ -139,12 +139,12 @@ if (lowMemory) {
   ## use national layers
 
   ## from https://open.canada.ca/data/en/dataset/4e615eae-b90c-420b-adee-2ca35896caf6
-  LCC <- prepInputs(
-    #url = "https://drive.google.com/file/d/13bHz8XEW5sIBZ4Mn-4_hxg-iaWmDEnlO/",
+  LCC <- Cache(
+    prepInputs,
     url = paste0("https://ftp.maps.canada.ca/pub/nrcan_rncan/Land-cover_Couverture-du-sol/",
-                 "canada-landcover_canada-couverture-du-sol/CanadaLandcover2015.zip"),
+                 "canada-landcover_canada-couverture-du-sol/CanadaLandcover2015.zip"), ## TODO: use 2010?
     targetFile = "CAN_LC_2015_CAL.tif", alsoExtract = "similar",
-    fun = "raster::raster", ## TODO: use terra
+    fun = "raster::raster",
     destinationPath = inputDir,
     studyArea = studyArea_ROF,
     targetCRS = targetCRS
@@ -153,9 +153,8 @@ if (lowMemory) {
   ## from https://open.canada.ca/data/en/dataset/4c0d9755-9347-42f2-bb1b-f4d2ff673254
   ba <- Cache(
     prepInputs,
-    #url = "https://drive.google.com/file/d/1aKCclzcKk8Aowj0kTK6oV36lAhJhIxJM/",
-    url = "https://opendata.nfis.org/downloads/forest_change/CA_forest_basal_area_2015_NN.zip",
-    targetFile = "CA_forest_basal_area_2015_NN.tif",
+    url = "https://opendata.nfis.org/downloads/forest_change/CA_forest_basal_area_2015_NN.zip", ## TODO: server problem
+    targetFile = "CA_forest_basal_area_2015_NN.tif", alsoExtract = "similar",
     fun = "raster::raster",
     destinationPath = inputDir,
     rasterToMatch = LCC
@@ -166,9 +165,8 @@ if (lowMemory) {
   ## saved here: https://drive.google.com/file/d/1zLwrWgiuoB1L-NlXhJuoMczTp9Eb4WiU/
   Tave <- Cache(
     prepInputs,
-    #url = "https://drive.google.com/file/d/1HT0swKK22D59n47RbbBJAyC1qGlAGb-E/",
     url = "https://s3-us-west-2.amazonaws.com/www.cacpd.org/CMIP6/normals/Normal_1981_2010_monthly.zip",
-    targetFile = "Normal_1981_2010_Tave_sm.tif",
+    targetFile = "Normal_1981_2010_Tave_sm.tif", alsoExtract = "similar", ## TODO: wrong filename!!!
     fun = "raster::raster",
     destinationPath = inputDir,
     rasterToMatch = LCC
@@ -178,11 +176,12 @@ if (lowMemory) {
     url = "https://sis.agr.gc.ca/cansis/nsdb/ecostrat/zone/ecozone_shp.zip",
     targetFile = "ecozones.shp",
     fun = "sf::st_read",
+    destinationPath = inputDir,
     studyArea = studyArea_ROF,
     targetCRS = targetCRS
   )
 
-  ecozone <- fasterize::fasterize(ecozones_CA, ba_CA, field = "ZONE_NAME", fun = "sum")
+  ecozone <- fasterize::fasterize(ecozones_shp, ba, field = "ZONE_NAME", fun = "sum")
 }
 
 ## TODO: need ~125m pixels; for now, use lower resolution rasters (1 x 1 km)
