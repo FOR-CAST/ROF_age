@@ -3,7 +3,7 @@ if (!exists("pkgDir")) {
     version$major, ".",
     strsplit(version$minor, "[.]")[[1]][1]
   ))
-
+  
   if (!dir.exists(pkgDir)) {
     dir.create(pkgDir, recursive = TRUE)
   }
@@ -31,7 +31,7 @@ Require(pkgs2) ## install if needed, and load/attach
 sptlPkgs <- c("rgdal", "sf", "terra", "raster", "rgeos") ## TODO: remove raster
 if (!all(sptlPkgs %in% rownames(installed.packages()))) {
   install.packages(sptlPkgs, repos = "https://cran.rstudio.com")
-
+  
   sf::sf_extSoftVersion() ## want GEOS 3.9.0, GDAL 3.2.1, PROJ 7.2.1 or higher
 }
 Require(c(sptlPkgs, "fasterize"))
@@ -67,15 +67,154 @@ opts <- options(
 ##   https://drive.google.com/drive/folders/1ZM8i8VZ8BcsxEdxWPE2S-AMO0JvQ9DRI
 
 ## input data
-f1 <- file.path(inputDir, "FinalAllAgeDataset2.txt")
-if (!file.exists(f1)) {
-  drive_download(as_id("13R7YW9RpxVQ6u-h4qGQhXDpQp76Umbva"), path = f1) # , overwrite = TRUE)
+# we can remove "FinalAllAgeDataset2.txt" from google drive
+
+f01 <- file.path(inputDir, "DatasetAgeNA.txt")#
+if (!file.exists(f01)) {
+  drive_download(as_id("1Ig7pNz1eYk5zWTYYpeR5LLYvdGzbV8Mx"), path = f01)#, overwrite =FALSE
 }
-plot3 <- read.table(f1, header = TRUE, sep = " ", fill = TRUE, dec = ".") # the dataset of ground plots
-plot3$ecozone <- as.factor(as.character(plot3$ecozone))
+plot2<-read.table(f01, header=T, sep=" ", fill=T, dec=".")# It is loading the old txt file, why??? Does it work for you?
+colnames(plot2)
+plot2$ecozone_combined<-as.factor(plot2$ecozone_combined)
+plot2$ecozone_combined= factor(plot2$ecozone_combined,levels(plot2$ecozone_combined)[c(1,2,4,6,3,5)])
+plot2$year_BA<-as.factor(plot2$year_BA)
+summary(plot2$ecozone_combined)
+str(plot2)
+summary(plot2$project_ID)
+#plot2<-subset(plot2,project_ID!='BurnedNWT')
+plot2$year_BA<-as.numeric(as.character(plot2$year_BA))
+plot2<-plot2%>%drop_na(latitude)
+plot2<-plot2%>%drop_na(TSLF)
+plot2<-subset(plot2,ecozone_combined!=c('ALASKA INT'))
+colnames(plot2)
+plot2$Type<-"Synthesis"
+dataSyn<-plot2[,c("Type","site_ID","burn_ID","latitude","longitude","ecozone","TSLF","year_BA","PPT_sm","Tave_sm","DD5","total_BA","LCC")]
+dataSyn$ecozone<-as.factor(dataSyn$ecozone)
+summary(dataSyn$ecozone)
+dataSyn<-subset(dataSyn,ecozone!=c('WESTERN CORDILLERA'))
+levels(droplevels(dataSyn$ecozone))
+dataSyn$LCC<-as.factor((dataSyn$LCC))
+summary(dataSyn$LCC)
+dataSyn$LCC<-as.factor(as.character(dataSyn$LCC))
+summary(dataSyn$LCC)
+dataSyn<-dataSyn[dataSyn$LCC != "0",]
+droplevels(dataSyn$LCC)
+dataSyn2<-dataSyn%>%drop_na(total_BA)
+dataSyn2$year_BA<-as.integer(dataSyn2$year_BA)
+
+# BNFF, NFI, TREESOURCE
+f02 <- file.path(inputDir, "ExtractFirePoints_LCC15_BA15_Ecozone_ROF_ClimarRed.txt")#same it continues reading previous versions
+if (!file.exists(f02)) {
+  drive_download(as_id("1LOp4i2sDP1alC88w7P4Q6hWsacoaAG1n"), path = f02)#, overwrite =FALSE
+}
+dataFF<-read.table(f02, header=T, sep="\t", fill=T, dec=".")
+colnames(dataFF)
+colnames(dataFF)[8]<-"year_BA"
+colnames(dataFF)[5]<-"LCC"
+dataFF$Type<-"BNFF"
+dataFF<-dataFF[,c("Type","site_ID","burn_ID","latitude","longitude","ecozone","TSLF","year_BA","total_BA","LCC")]
+dataFF2<-dataFF[,c(2,4,5)]
+unique(length(dataFF2$site_ID))
+colnames(dataFF2)[1]<-"ID1"
+colnames(dataFF2)[2]<-"lat"
+colnames(dataFF2)[3]<-"lon"
+# I have to add the climate from the raster. I did it in ArcMap
+f03 <- file.path(inputDir, "CoordFF2clima.txt")#
+if (!file.exists(f03)) {
+  drive_download(as_id("1cQHieqwJPej13D76rDhGiYiSND-sOzwD"), path = f03)#, overwrite =FALSE
+}
+dataFF2clima<-read.table(f03, header=T, sep=",", fill=T, dec=".")
+colnames(dataFF2clima)[2]<-"site_ID"
+colnames(dataFF2clima)[3]<-"latitude"
+colnames(dataFF2clima)[4]<-"longitude"
+colnames(dataFF2clima)[5]<-"PPT_sm"
+colnames(dataFF2clima)[6]<-"Tave_sm"
+colnames(dataFF2clima)[7]<-"DD5"
+dataFF2clima<-subset(dataFF2clima,PPT_sm>0&site_ID!=0)
+dataFF2<-merge(dataFF,dataFF2clima[,-1],by=c("site_ID","latitude","longitude"))
+dataFF2<-dataFF2[,c("Type","site_ID","burn_ID","latitude","longitude","ecozone","TSLF","year_BA","PPT_sm","Tave_sm","DD5","total_BA","LCC")]
+
+f04 <- file.path(inputDir, "FinalNFI&TreeSource.txt")#
+if (!file.exists(f04)) {
+  drive_download(as_id("1ROJeiPdI7fvdcPm9MMQMJTseLko0-TZR"), path = f04)#, overwrite =FALSE
+}
+dataNFIMORE<-read.table(f04, header=T, sep="\t", fill=T, dec=".")
+colnames(dataNFIMORE)[6]<-"ecozone"
+dataFF2<-rbind(dataFF2,dataNFIMORE)
+unique(dataFF2$Type)
+dataFF2$ecozone<-as.factor(dataFF2$ecozone)
+summary(dataFF2$ecozone)
+levels(dataFF2$ecozone)[levels(dataFF2$ecozone)=="Atlantic Maritime"] <- "ATLANTIC MARITIME"
+levels(dataFF2$ecozone)[levels(dataFF2$ecozone)=="Boreal PLain"] <- "BOREAL PLAIN"
+levels(dataFF2$ecozone)[levels(dataFF2$ecozone)=="Boreal Shield"] <- "BOREAL SHIELD"
+levels(dataFF2$ecozone)[levels(dataFF2$ecozone)=="Hudson Plain"] <- "HUDSON PLAIN"
+levels(dataFF2$ecozone)[levels(dataFF2$ecozone)=="Boreal Cordillera"] <- "BOREAL CORDILLERA"
+levels(dataFF2$ecozone)[levels(dataFF2$ecozone)=="Montane Cordillera"] <- "MONTANE CORDILLERA"
+levels(dataFF2$ecozone)[levels(dataFF2$ecozone)=="Pacific Maritime"] <- "PACIFIC MARITIME"
+levels(dataFF2$ecozone)[levels(dataFF2$ecozone)=="Taiga Cordillera"] <- "TAIGA CORDILLERA"
+levels(dataFF2$ecozone)[levels(dataFF2$ecozone)=="Taiga Plain"] <- "TAIGA PLAIN"
+levels(dataFF2$ecozone)[levels(dataFF2$ecozone)=="Taiga Shield"] <- "TAIGA SHIELD"
+levels(dataFF2$ecozone)[levels(dataFF2$ecozone)=="MixedWood Plain"] <- "MIXEDWOOD PLAIN"
+summary(dataFF2$ecozone)
+dataFF3<-dataFF2[dataFF2$ecozone == "ATLANTIC MARITIME" | dataFF2$ecozone == "BOREAL CORDILLERA"
+                 | dataFF2$ecozone == "BOREAL PLAIN"| dataFF2$ecozone == "BOREAL SHIELD"
+                 | dataFF2$ecozone == "HUDSON PLAIN"| dataFF2$ecozone == "MONTANE CORDILLERA"
+                 | dataFF2$ecozone == "PACIFIC MARITIME"| dataFF2$ecozone == "TAIGA CORDILLERA"
+                 | dataFF2$ecozone == "TAIGA PLAIN"| dataFF2$ecozone == "TAIGA SHIELD"
+                 | dataFF2$ecozone == "MIXEDWOOD PLAIN",]
+
+summary(dataFF3$ecozone)
+range(dataFF3$PPT_sm)
+range(dataFF3$Tave_sm)
+range(dataFF3$DD5)
+range(dataFF3$TSLF)
+range(dataFF3$total_BA)
+dataFF3<-subset(dataFF3,TSLF>0&PPT_sm>=0&LCC>0)
+dataFF3$LCC<-as.factor(as.character(dataFF3$LCC))
+str(dataFF3)
+summary(dataFF3$LCC)
+
+dataFF3$site_ID<-as.factor((dataFF3$site_ID))
+dataFF3$PPT_sm<-as.integer((dataFF3$PPT_sm))
+dataFF3$DD5<-as.integer((dataFF3$DD5))
+
+colnames(dataSyn2)
+colnames(dataFF3)
+
+plot2<-rbind(dataSyn2,dataFF3)
+plot2<-na.omit(plot2[,-3])
+nrow(plot2)
+summary(plot2$ecozone)
+summary(plot2$LCC)
+summary(droplevels(plot2$ecozone))
+colnames(plot2)
+range(plot2$TSLF)
+plot2<-subset(plot2,TSLF<400)
+summary(plot2$ecozone)
+levels(plot2$ecozone)[levels(plot2$ecozone)=="TAIGA SHIELD EAST"] <- "TAIGA SHIELD"
+levels(plot2$ecozone)[levels(plot2$ecozone)=="TAIGA SHIELD WEST"] <- "TAIGA SHIELD"
+plot3<-plot2
+#plot3<-subset(plot3,Type!='BNFF')
+#plot3<-subset(plot2,Type!='BNFF'&total_BA>0)
+#plot3<-subset(plot3,total_BA>0)
+plot3<-subset(plot3,total_BA<80)# 
 summary(plot3$ecozone)
-plot3$LCC <- as.factor(as.character(plot3$LCC))
+plot3<-plot3[which(plot3$ecozone!="TAIGA CORDILLERA"),]
+plot3<-plot3[which(plot3$ecozone!="PACIFIC MARITIME"),]
+plot3<-plot3[which(plot3$ecozone!="MIXEDWOOD PLAIN"),]
+plot3<-plot3[which(plot3$ecozone!="ATLANTIC MARITIME"),]
+plot3<-plot3[which(plot3$ecozone!="BOREAL CORDILLERA"),]
+plot3<-plot3[which(plot3$ecozone!="MONTANE CORDILLERA"),]
+
+plot3$LCC<-as.numeric(plot3$LCC)
+plot3<-plot3[which(plot3$LCC<15),]
+plot3$LCC<-as.factor(plot3$LCC)
 summary(plot3$LCC)
+levels(plot3$LCC)[levels(plot3$LCC)=="11"] <- "11_12_13"
+levels(plot3$LCC)[levels(plot3$LCC)=="12"] <- "11_12_13"
+levels(plot3$LCC)[levels(plot3$LCC)=="13"] <- "11_12_13"
+nrow(plot3[which(plot3$ecozone=='HUDSON PLAIN'),])
+hist(plot3$TSLF)
 
 ## this project's CRS/projection to use for all spatial data
 targetCRS <- paste("+proj=lcc +lat_1=49 +lat_2=77 +lat_0=0 +lon_0=-95",
