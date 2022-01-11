@@ -416,7 +416,7 @@ ggarrange(FigHist, FigHist2)
 ggsave(file.path(figsDir, "plot_age_pred_vs_obs_hists.png"))
 
 # Predicted vs Observed all ecozones included--> new Age layer
-cor.test((DatasetAge1$predictAge), DatasetAge1$TSLF) #
+cor.test((DatasetAge1$predictAge), DatasetAge1$TSLF)
 Fig1 <- ggplot(DatasetAge1, aes(y = TSLF, x = (predictAge))) +
   geom_point() +
   ggtitle("Plot age") +
