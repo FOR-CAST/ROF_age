@@ -389,7 +389,7 @@ dev.off()
 
 ## TODO: remove duplicate code below / cleanup
 
-DatasetAge1$predictAge <- predict(modage2, DatasetAge1) #
+DatasetAge1$predictAge <- predict(modage2, DatasetAge1)
 
 FigHist <- ggplot(DatasetAge1, aes(x = TSLF)) +
   xlim(0, 300) +
@@ -442,7 +442,7 @@ DatasetAge3 <- na.omit(DatasetAge2)
 DatasetAge3 <- subset(DatasetAge3, year_BA < 2012)
 
 # Predicted vs Observed for the ROF region--> new Age layer
-cor.test(exp(DatasetAge3$predictAge), DatasetAge3$TSLF) # significant
+cor.test(exp(DatasetAge3$predictAge), DatasetAge3$TSLF) ## TODO: ERROR: not enough finite observations
 Fig2 <- ggplot(DatasetAge3, aes(y = TSLF, x = exp(predictAge))) +
   geom_point() +
   ggtitle("ROF region -NEW Age layer-") +
