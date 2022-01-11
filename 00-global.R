@@ -339,6 +339,8 @@ res(LCC)
 res(ba)
 res(Tave)
 
+compareRaster(LCC, ba, Tave, ecozone)
+
 LCC_1km <- terra::aggregate(LCC, fact = 25, fun = modal, dissolve = FALSE) # 750 m resolution.
 res(LCC_1km)
 plot(LCC_1km)
