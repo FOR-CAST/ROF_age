@@ -113,7 +113,7 @@ colnames(dataFF)
 colnames(dataFF)[8]<-"year_BA"
 colnames(dataFF)[5]<-"LCC"
 dataFF$Type<-"BNFF"
-dataFF<-subset(dataFF,SIZE_HA>999)# ASK WHICH SIZE SHOULD WE USE AS A THRESHOLD
+dataFF<-subset(dataFF,SIZE_HA>999)# ASK WHICH SIZE SHOULD WE USE AS A THRESHOLD. Including all forest fires, the model doesn't perform well. 
 dataFF<-dataFF[,c("Type","site_ID","burn_ID","latitude","longitude","ecozone","TSLF","year_BA","total_BA","LCC")]
 dataFF2<-dataFF[,c(2,4,5)]
 unique(length(dataFF2$site_ID))
@@ -196,7 +196,7 @@ summary(plot2$ecozone)
 levels(plot2$ecozone)[levels(plot2$ecozone)=="TAIGA SHIELD EAST"] <- "TAIGA SHIELD"
 levels(plot2$ecozone)[levels(plot2$ecozone)=="TAIGA SHIELD WEST"] <- "TAIGA SHIELD"
 plot3<-plot2
-plot3<-subset(plot3,Type!='BNFF')
+#plot3<-subset(plot3,Type!='BNFF')# removing the datset of forest fires
 #plot3<-subset(plot2,Type!='BNFF'&total_BA>0)
 #plot3<-subset(plot3,total_BA>0)
 plot3<-subset(plot3,total_BA<80)# 
@@ -362,13 +362,13 @@ writeRaster(Tave_1km, f5, overwrite = FALSE)
 ## the model
 ## NOTE: need too much RAM to run below with the parameter select=TRUE
 modage2 <- bam(
-  log(TSLF) ~ s(total_BA) + ti(total_BA, Tave_sm) + s(total_BA, by = LCC) +
+  TSLF ~ s(total_BA) + ti(total_BA, Tave_sm) + s(total_BA, by = LCC) +
     s(Tave_sm, by = LCC) +
     s(longitude, latitude, bs = "gp", k = 100, m = 2) +
-    s(Tave_sm) + s(ecozone, bs = "re") +
-    ti(longitude, total_BA) + ti(latitude, total_BA),
-  data = plot3, method = "fREML", drop.intercept = FALSE
+    s(Tave_sm) + s(ecozone, bs = "re"),
+  data = plot3, method = "fREML", family=nb(),drop.intercept = FALSE, discrete=TRUE
 )
+# need to do some tests, but the model has improved by including the dataset of forest fires larger than 1000 ha.
 AIC(modage2)
 summary(modage2)
 
@@ -400,7 +400,6 @@ FigHist2 <- ggplot(plot3, aes(x = exp(predictAge))) +
   theme_bw()
 
 ## the ring of fire is in the Boreal Shield.
-## The model is not good at predicting younger ages for this ecozone
 ggarrange(FigHist, FigHist2)
 
 # Predicted vs Observed all ecozones included--> new Age layer
