@@ -47,6 +47,8 @@ inputDir <- checkPath("inputs", create = TRUE)
 outputDir <- checkPath("outputs", create = TRUE)
 scratchDir <- checkPath("scratch", create = TRUE)
 
+figsDir <- checkPath("outputs/figures", create = TRUE)
+
 ## project options
 raster::rasterOptions(default = TRUE)
 opts <- options(
@@ -149,7 +151,8 @@ dataFF2$ecozone <- as.factor(dataFF2$ecozone)
 summary(dataFF2$ecozone)
 levels(dataFF2$ecozone) <- toupper(levels(dataFF2$ecozone))
 summary(dataFF2$ecozone)
-dataFF3 <- dataFF2[grepl(paste("ATLANTIC MARITIME", "BOREAL CORDILLERA", "BOREAL PLAIN", "BOREAL SHIELD",
+dataFF3 <- dataFF2[grepl(paste(
+  "ATLANTIC MARITIME", "BOREAL CORDILLERA", "BOREAL PLAIN", "BOREAL SHIELD",
   "HUDSON PLAIN", "MONTANE CORDILLERA", "PACIFIC MARITIME", "TAIGA CORDILLERA",
   "TAIGA PLAIN", "TAIGA SHIELD", "MIXEDWOOD PLAIN",
   sep = "|"
@@ -184,17 +187,17 @@ DatasetAge0 <- subset(DatasetAge0, TSLF < 600)
 summary(DatasetAge0$ecozone)
 levels(DatasetAge0$ecozone)[levels(DatasetAge0$ecozone) == "TAIGA SHIELD EAST"] <- "TAIGA SHIELD"
 levels(DatasetAge0$ecozone)[levels(DatasetAge0$ecozone) == "TAIGA SHIELD WEST"] <- "TAIGA SHIELD"
+
 DatasetAge1 <- DatasetAge0
-# DatasetAge1<-subset(DatasetAge1,Type!='BNFF')# removing the datset of forest fires
-# DatasetAge1<-subset(DatasetAge0,Type!='BNFF'&total_BA>0)
-# DatasetAge1<-subset(DatasetAge1,total_BA>0)
+# DatasetAge1<-subset(DatasetAge1, Type != "BNFF") ## removing the datset of forest fires
+# DatasetAge1<-subset(DatasetAge0, Type != "BNFF" & total_BA > 0)
+# DatasetAge1<-subset(DatasetAge1, total_BA > 0)
 hist(DatasetAge1$total_BA)
 summary(DatasetAge1$ecozone)
 DatasetAge1 <- DatasetAge1[which(!(DatasetAge1$ecozone %in% c(
   "TAIGA CORDILLERA", "PACIFIC MARITIME", "MIXEDWOOD PLAIN",
   "ATLANTIC MARITIME", "BOREAL CORDILLERA", "MONTANE CORDILLERA"
 ))), ]
-
 DatasetAge1$LCC <- as.numeric(DatasetAge1$LCC)
 DatasetAge1 <- DatasetAge1[which(DatasetAge1$LCC < 15), ]
 DatasetAge1$LCC <- as.factor(DatasetAge1$LCC)
@@ -251,14 +254,6 @@ if (lowMemory) {
     prepInputs,
     url = "https://drive.google.com/file/d/1IwRayjkjOGFjIUDfCYyPsKmgx9MRGqKA/",
     targetFile = "ecozones_PolygonToRaster21_C1.tif", alsoExtract = "similar",
-    fun = "raster::raster", ## TODO: use terra
-    destinationPath = inputDir,
-    rasterToMatch = LCC
-  )
-
-  predPrevAge <- prepInputs(
-    url = "https://drive.google.com/file/d/14zxLiW_XVoOeLILi9bqpdTtDzOw4JyuP/",
-    targetFile = "standAgeMap_it_1_ts_2011_ProROF.tif",
     fun = "raster::raster", ## TODO: use terra
     destinationPath = inputDir,
     rasterToMatch = LCC
@@ -326,8 +321,18 @@ if (lowMemory) {
     targetCRS = targetCRS
   )
 
-  ecozone <- fasterize::fasterize(ecozones_shp, ba, field = "ZONE_NAME", fun = "sum")
+  ecozone_shp$ZONE_NAME <- as.factor(ecozone_shp$ZONE_NAME)
+  ecozone <- fasterize::fasterize(ecozone_shp, ba, field = "ZONE_NAME", fun = "sum")
 }
+
+predPrevAge <- Cache(
+  prepInputs,
+  url = "https://drive.google.com/file/d/14zxLiW_XVoOeLILi9bqpdTtDzOw4JyuP/",
+  targetFile = "standAgeMap_it_1_ts_2011_ProROF.tif",
+  fun = "raster::raster", ## TODO: use terra
+  destinationPath = inputDir,
+  rasterToMatch = LCC
+)
 
 ## TODO: need ~125m pixels; for now, use lower resolution rasters (1 x 1 km)
 res(LCC)
@@ -341,17 +346,23 @@ plot(LCC_1km)
 ecozone_1km <- terra::aggregate(ecozone, fact = 25, fun = modal) # 750 m resolution.
 res(ecozone_1km)
 
-values(ba) <- runif(ncell(ba))
-ba_1km <- terra::aggregate(ba, fact = 25, fun = mean, na.rm = TRUE) # 750 m resolution.
+ba2 <- ba
+values(ba2) <- runif(ncell(ba2))
+ba_1km <- terra::aggregate(ba2, fact = 25, fun = mean, na.rm = TRUE) # 750 m resolution.
 res(ba_1km)
 f4 <- file.path(inputDir, "ba_1km.tif")
-writeRaster(ba_1km, f4)
+#writeRaster(ba_1km, f4)
+#drive_put(f4, as_id("1DzbbVSYp0br-MIi1iI0EPMGGy4BRrjnk"))
+rm(ba2)
 
-values(Tave) <- runif(ncell(Tave))
-Tave_1km <- terra::aggregate(Tave, fact = 25, fun = mean, na.rm = TRUE) # 750 m resolution.
+Tave2 <- Tave
+values(Tave2) <- runif(ncell(Tave2))
+Tave_1km <- terra::aggregate(Tave2, fact = 25, fun = mean, na.rm = TRUE) # 750 m resolution.
 res(Tave_1km)
 f5 <- file.path(inputDir, "Tave_1km.tif")
-writeRaster(Tave_1km, f5)
+#writeRaster(Tave_1km, f5)
+#drive_put(f5, as_id("1DzbbVSYp0br-MIi1iI0EPMGGy4BRrjnk"))
+rm(Tave2)
 
 rasStack0 <- stack(LCC_1km, ba_1km, Tave_1km, ecozone_1km)
 
@@ -370,6 +381,7 @@ modage2 <- bam(
 AIC(modage2)
 summary(modage2)
 
+## TODO: plot to file
 dev.new(width = 40, height = 20, pointsize = 12)
 par(mfrow = c(2, 2), mar = c(4, 4, 2, 1))
 gam.check(modage2, rep = 100)
@@ -399,6 +411,7 @@ FigHist2 <- ggplot(DatasetAge1, aes(x = exp(predictAge))) +
 
 ## the ring of fire is in the Boreal Shield.
 ggarrange(FigHist, FigHist2)
+ggsave(file.path(figsDir, "plot_age_pred_vs_obs_hists.png"))
 
 # Predicted vs Observed all ecozones included--> new Age layer
 cor.test(exp(DatasetAge1$predictAge), DatasetAge1$TSLF) #
