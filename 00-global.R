@@ -352,11 +352,13 @@ rasStack0 <- stack(LCC_1km,ba_1km,Tave_1km,ecozone_1km)
 ## the model
 ## NOTE: need too much RAM to run below with the parameter select=TRUE
 modage2 <- bam(
-  TSLF ~ s(total_BA) + ti(total_BA, Tave_sm) + s(total_BA, by = LCC) +
+  log(TSLF) ~ s(total_BA) + ti(total_BA, Tave_sm) + s(total_BA, by = LCC) +
     s(Tave_sm, by = LCC) +
     s(longitude, latitude, bs = "gp", k = 100, m = 2) +
-    s(Tave_sm) + s(ecozone, bs = "re"),
-  data = DatasetAge1, method = "fREML", family = nb(), drop.intercept = FALSE, discrete = TRUE
+    s(Tave_sm) + ecozone+ 
+    s(total_BA, by = ecozone) +
+    s(Tave_sm, by = ecozone),
+  data = DatasetAge1, method = "fREML", drop.intercept = FALSE, discrete = TRUE
 )
 # need to do some tests, but the model has improved by including the dataset of forest fires larger than 1000 ha.
 AIC(modage2)
