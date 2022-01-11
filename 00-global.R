@@ -103,15 +103,17 @@ dataSyn2<-dataSyn%>%drop_na(total_BA)
 dataSyn2$year_BA<-as.integer(dataSyn2$year_BA)
 
 # BNFF, NFI, TREESOURCE
-f02 <- file.path(inputDir, "ExtractFirePoints_LCC15_BA15_Ecozone_ROF_ClimarRed.txt")#same it continues reading previous versions
+f02 <- file.path(inputDir, "ExtractFirePoints_LCC15_BA15_Ecozone_ROF_ClimaRed2.txt")#same it continues reading previous versions
 if (!file.exists(f02)) {
-  drive_download(as_id("1LOp4i2sDP1alC88w7P4Q6hWsacoaAG1n"), path = f02)#, overwrite =FALSE
+  drive_download(as_id("1cpgqsFEV6QUD_ZhKLsgn4mA8GwbFLVcD"), path = f02)#, overwrite =FALSE
 }
+
 dataFF<-read.table(f02, header=T, sep="\t", fill=T, dec=".")
 colnames(dataFF)
 colnames(dataFF)[8]<-"year_BA"
 colnames(dataFF)[5]<-"LCC"
 dataFF$Type<-"BNFF"
+dataFF<-subset(dataFF,SIZE_HA>999)# ASK WHICH SIZE SHOULD WE USE AS A THRESHOLD
 dataFF<-dataFF[,c("Type","site_ID","burn_ID","latitude","longitude","ecozone","TSLF","year_BA","total_BA","LCC")]
 dataFF2<-dataFF[,c(2,4,5)]
 unique(length(dataFF2$site_ID))
