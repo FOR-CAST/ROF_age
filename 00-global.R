@@ -326,17 +326,17 @@ res(LCC)
 res(ba)
 res(Tave)
 
-LCC_1km <-terra::aggregate(LCC, fact = 25,fun=modal,dissolve=FALSE)  # 750 m resolution save it please
+LCC_1km <-terra::aggregate(LCC, fact = 25,fun=modal,dissolve=FALSE)  # 750 m resolution. This takes 5'
 res(LCC_1km)
 plot(LCC_1km)
 
-ecozone_1km <- terra::aggregate(ecozone, fact = 25,fun=modal) # 750 m resolution save it please
+ecozone_1km <- terra::aggregate(ecozone, fact = 25,fun=modal) # 750 m resolution. This takes 5'
 res(ecozone_1km)
 
 
 # wheneeve I try this process, my R session closes. I cannot continue. Please, can you run these as save the rasters?
 values(ba) <- runif(ncell(ba))
-ba_1km <- terra::aggregate(ba, fact = 25,fun=mean) # 750 m resolution save it please
+ba_1km <- terra::aggregate(ba, fact = 25,fun=mean,na.rm=TRUE) # 750 m resolution save it please. I cannot run it.  
 res(ba_1km)
 f4 <- file.path(inputDir, "ba_1km.tif") # not sure if this is right
 writeRaster(ba_1km, f4, overwrite = FALSE)
