@@ -325,20 +325,26 @@ res(LCC)
 res(ba)
 res(Tave)
 
-LCC_1km <- raster::aggregate(LCC, fact = 25) # 750 m resolution save it please
+LCC_1km <-terra::aggregate(LCC, fact = 25,fun=modal,dissolve=FALSE)  # 750 m resolution save it please
 res(LCC_1km)
+plot(LCC_1km)
 f3 <- file.path(inputDir, "LCC_1km.tif") # not sure if this is right
 writeRaster(LCC_1km, f3, overwrite = FALSE)
 
-ba_1km <- raster::aggregate(ba, fact = 25) # 750 m resolution save it please
+ba_1km <- terra::aggregate(ba, fact = 25,fun=median) # 750 m resolution save it please
 res(ba_1km)
 f4 <- file.path(inputDir, "ba_1km.tif") # not sure if this is right
 writeRaster(ba_1km, f4, overwrite = FALSE)
 
-Tave_1km <- raster::aggregate(Tave, fact = 25) # 750 m resolution save it please
+Tave_1km <- terra::aggregate(Tave, fact = 25,fun=mean) # 750 m resolution save it please
 res(Tave_1km)
 f5 <- file.path(inputDir, "Tave_1km.tif") # not sure if this is right
 writeRaster(Tave_1km, f5, overwrite = FALSE)
+
+ecozone_1km <- terra::aggregate(ecozone, fact = 25,fun=modal) # 750 m resolution save it please
+res(ecozone_1km)
+
+rasStack0 <- stack(LCC_1km,ba_1km,Tave_1km,ecozone_1km)
 
 ## the model
 ## NOTE: need too much RAM to run below with the parameter select=TRUE
