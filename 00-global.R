@@ -3,7 +3,7 @@ if (!exists("pkgDir")) {
     version$major, ".",
     strsplit(version$minor, "[.]")[[1]][1]
   ))
-
+  
   if (!dir.exists(pkgDir)) {
     dir.create(pkgDir, recursive = TRUE)
   }
@@ -31,7 +31,7 @@ Require(pkgs2) ## install if needed, and load/attach
 sptlPkgs <- c("rgdal", "sf", "terra", "raster", "rgeos") ## TODO: remove raster
 if (!all(sptlPkgs %in% rownames(installed.packages()))) {
   install.packages(sptlPkgs, repos = "https://cran.rstudio.com")
-
+  
   sf::sf_extSoftVersion() ## want GEOS 3.9.0, GDAL 3.2.1, PROJ 7.2.1 or higher
 }
 Require(c(sptlPkgs, "fasterize"))
@@ -68,26 +68,25 @@ opts <- options(
 
 ## input data
 
-f01 <- file.path(inputDir, "DatasetAgeNA.txt")
+f01 <- file.path(inputDir, ".txt")#DatasetAgeNA
 if (!file.exists(f01)) {
-  drive_download(as_id("1Ig7pNz1eYk5zWTYYpeR5LLYvdGzbV8Mx"), path = f01)
+  drive_download(as_id("1Ig7pNz1eYk5zWTYYpeR5LLYvdGzbV8Mx"), path = f01, overwrite = TRUE)
 }
-plot2 <- read.table(f01, header = TRUE, sep = "\t", fill = TRUE, dec = ".") ## TODO: fix error: more columns than column names
-colnames(plot2)
-plot2$ecozone_combined <- as.factor(plot2$ecozone_combined)
-plot2$ecozone_combined <- factor(plot2$ecozone_combined, levels(plot2$ecozone_combined)[c(1, 2, 4, 6, 3, 5)])
-plot2$year_BA <- as.factor(plot2$year_BA)
-summary(plot2$ecozone_combined)
-str(plot2)
-summary(plot2$project_ID)
-# plot2<-subset(plot2,project_ID!='BurnedNWT')
-plot2$year_BA <- as.numeric(as.character(plot2$year_BA))
-plot2 <- drop_na(plot2, latitude)
-plot2 <- drop_na(plot2, TSLF)
-plot2 <- subset(plot2, ecozone_combined != c("ALASKA INT"))
-colnames(plot2)
-plot2$Type <- "Synthesis"
-dataSyn <- plot2[, c("Type", "site_ID", "burn_ID", "latitude", "longitude", "ecozone", "TSLF",
+DatasetAge0 <- read.table(f01, header = TRUE, sep = "\t", fill = TRUE, dec = ".") ## TODO: fix error: more columns than column names
+colnames(DatasetAge0)
+DatasetAge0$ecozone_combined <- as.factor(DatasetAge0$ecozone_combined)
+DatasetAge0$ecozone_combined <- factor(DatasetAge0$ecozone_combined, levels(DatasetAge0$ecozone_combined)[c(1, 2, 4, 6, 3, 5)])
+DatasetAge0$year_BA <- as.factor(DatasetAge0$year_BA)
+summary(DatasetAge0$ecozone_combined)
+str(DatasetAge0)
+# DatasetAge0<-subset(DatasetAge0,project_ID!='BurnedNWT')
+DatasetAge0$year_BA <- as.numeric(as.character(DatasetAge0$year_BA))
+DatasetAge0 <- drop_na(DatasetAge0, latitude)
+DatasetAge0 <- drop_na(DatasetAge0, TSLF)
+DatasetAge0 <- subset(DatasetAge0, ecozone_combined != c("ALASKA INT"))
+colnames(DatasetAge0)
+DatasetAge0$Type <- "Synthesis"
+dataSyn <- DatasetAge0[, c("Type", "site_ID", "burn_ID", "latitude", "longitude", "ecozone", "TSLF",
                      "year_BA", "PPT_sm", "Tave_sm", "DD5", "total_BA", "LCC")]
 dataSyn$ecozone <- as.factor(dataSyn$ecozone)
 summary(dataSyn$ecozone)
@@ -114,7 +113,7 @@ colnames(dataFF)[8] <- "year_BA"
 colnames(dataFF)[5] <- "LCC"
 dataFF$Type <- "BNFF"
 ## TODO: which sive to use as threhold? Including all forest fires, the model doesn't perform well.
-dataFF <- subset(dataFF, SIZE_HA > 999)
+dataFF <- subset(dataFF, SIZE_HA > 499)# I suggest taking only large forest fires
 dataFF <- dataFF[, c("Type", "site_ID", "burn_ID", "latitude", "longitude", "ecozone", "TSLF", "year_BA", "total_BA", "LCC")]
 dataFF2 <- dataFF[, c(2, 4, 5)]
 unique(length(dataFF2$site_ID))
@@ -140,6 +139,8 @@ dataNFIMORE <- read.table(f04, header = TRUE, sep = "\t", fill = TRUE, dec = "."
 colnames(dataNFIMORE)[6] <- "ecozone"
 dataFF2 <- rbind(dataFF2, dataNFIMORE)
 unique(dataFF2$Type)
+dataFF2$Type<-as.factor(dataFF2$Type)
+summary(dataFF2$Type)
 dataFF2$ecozone <- as.factor(dataFF2$ecozone)
 summary(dataFF2$ecozone)
 levels(dataFF2$ecozone) <- toupper(levels(dataFF2$ecozone))
@@ -165,34 +166,34 @@ dataFF3$DD5 <- as.integer((dataFF3$DD5))
 colnames(dataSyn2)
 colnames(dataFF3)
 
-plot2 <- rbind(dataSyn2, dataFF3)
-plot2 <- na.omit(plot2[, -3])
-nrow(plot2)
-summary(plot2$ecozone)
-summary(plot2$LCC)
-summary(droplevels(plot2$ecozone))
-colnames(plot2)
-range(plot2$TSLF)
-plot2 <- subset(plot2, TSLF < 400)
-summary(plot2$ecozone)
-levels(plot2$ecozone)[levels(plot2$ecozone) == "TAIGA SHIELD EAST"] <- "TAIGA SHIELD"
-levels(plot2$ecozone)[levels(plot2$ecozone) == "TAIGA SHIELD WEST"] <- "TAIGA SHIELD"
-plot3 <- plot2
-# plot3<-subset(plot3,Type!='BNFF')# removing the datset of forest fires
-# plot3<-subset(plot2,Type!='BNFF'&total_BA>0)
-# plot3<-subset(plot3,total_BA>0)
-plot3 <- subset(plot3, total_BA < 80) #
-summary(plot3$ecozone)
-plot3 <- plot3[which(!(plot3$ecozone %in% c("TAIGA CORDILLERA", "PACIFIC MARITIME", "MIXEDWOOD PLAIN",
+DatasetAge0 <- rbind(dataSyn2, dataFF3)
+DatasetAge0 <- na.omit(DatasetAge0[, -3])
+nrow(DatasetAge0)
+summary(DatasetAge0$ecozone)
+summary(DatasetAge0$LCC)
+summary(droplevels(DatasetAge0$ecozone))
+colnames(DatasetAge0)
+hist(DatasetAge0$TSLF)
+DatasetAge0 <- subset(DatasetAge0, TSLF < 600)
+summary(DatasetAge0$ecozone)
+levels(DatasetAge0$ecozone)[levels(DatasetAge0$ecozone) == "TAIGA SHIELD EAST"] <- "TAIGA SHIELD"
+levels(DatasetAge0$ecozone)[levels(DatasetAge0$ecozone) == "TAIGA SHIELD WEST"] <- "TAIGA SHIELD"
+DatasetAge1 <- DatasetAge0
+# DatasetAge1<-subset(DatasetAge1,Type!='BNFF')# removing the datset of forest fires
+# DatasetAge1<-subset(DatasetAge0,Type!='BNFF'&total_BA>0)
+# DatasetAge1<-subset(DatasetAge1,total_BA>0)
+hist(DatasetAge1$total_BA)
+summary(DatasetAge1$ecozone)
+DatasetAge1 <- DatasetAge1[which(!(DatasetAge1$ecozone %in% c("TAIGA CORDILLERA", "PACIFIC MARITIME", "MIXEDWOOD PLAIN",
                                             "ATLANTIC MARITIME", "BOREAL CORDILLERA", "MONTANE CORDILLERA"))), ]
 
-plot3$LCC <- as.numeric(plot3$LCC)
-plot3 <- plot3[which(plot3$LCC < 15), ]
-plot3$LCC <- as.factor(plot3$LCC)
-summary(plot3$LCC)
-levels(plot3$LCC)[grepl("11|12|13", levels(plot3$LCC))] <- "11_12_13"
-nrow(plot3[which(plot3$ecozone == "HUDSON PLAIN"), ])
-hist(plot3$TSLF)
+DatasetAge1$LCC <- as.numeric(DatasetAge1$LCC)
+DatasetAge1 <- DatasetAge1[which(DatasetAge1$LCC < 15), ]
+DatasetAge1$LCC <- as.factor(DatasetAge1$LCC)
+summary(DatasetAge1$LCC)
+levels(DatasetAge1$LCC)[grepl("11|12|13", levels(DatasetAge1$LCC))] <- "11_12_13"
+nrow(DatasetAge1[which(DatasetAge1$ecozone == "HUDSON PLAIN"), ])
+hist(DatasetAge1$TSLF)
 
 ## this project's CRS/projection to use for all spatial data
 targetCRS <- paste(
@@ -218,7 +219,7 @@ if (lowMemory) {
     fun = "raster::raster", ## TODO: use terra
     destinationPath = inputDir
   )
-
+  
   ## NOTE: reprojecting rasters in memory requires too much RAM to not use GDAL (see options above)
   ba <- Cache(
     prepInputs,
@@ -228,7 +229,7 @@ if (lowMemory) {
     destinationPath = inputDir,
     rasterToMatch = LCC
   )
-
+  
   Tave <- Cache(
     prepInputs,
     url = "https://drive.google.com/file/d/1HT0swKK22D59n47RbbBJAyC1qGlAGb-E/",
@@ -237,7 +238,7 @@ if (lowMemory) {
     destinationPath = inputDir,
     rasterToMatch = LCC
   )
-
+  
   ecozone <- Cache(
     prepInputs,
     url = "https://drive.google.com/file/d/1IwRayjkjOGFjIUDfCYyPsKmgx9MRGqKA/",
@@ -246,7 +247,7 @@ if (lowMemory) {
     destinationPath = inputDir,
     rasterToMatch = LCC
   )
-
+  
   predPrevAge <- prepInputs(
     url = "https://drive.google.com/file/d/14zxLiW_XVoOeLILi9bqpdTtDzOw4JyuP/",
     targetFile = "standAgeMap_it_1_ts_2011_ProROF.tif",
@@ -256,7 +257,7 @@ if (lowMemory) {
   )
 } else {
   ## use national layers
-
+  
   ## from https://open.canada.ca/data/en/dataset/4e615eae-b90c-420b-adee-2ca35896caf6
   LCC <- Cache(
     prepInputs,
@@ -270,7 +271,7 @@ if (lowMemory) {
     studyArea = studyArea_ROF,
     targetCRS = targetCRS
   )
-
+  
   ## from https://open.canada.ca/data/en/dataset/4c0d9755-9347-42f2-bb1b-f4d2ff673254
   ba <- Cache(
     prepInputs,
@@ -281,7 +282,7 @@ if (lowMemory) {
     destinationPath = inputDir,
     rasterToMatch = LCC
   )
-
+  
   Tave <- Cache(
     prepInputs,
     url = "https://s3-us-west-2.amazonaws.com/www.cacpd.org/CMIP6/normals/Normal_1981_2010_bioclim.zip",
@@ -290,7 +291,7 @@ if (lowMemory) {
     destinationPath = inputDir,
     rasterToMatch = LCC
   )
-
+  
   ## TODO: use finer-resolution climate data from ClimateNA desktop app:
   # ft <- "Normal_1981_2010S/Tave_sm.asc"
   # fz <- file.path(inputDir, "Normal_1981_2010S.zip")
@@ -307,7 +308,7 @@ if (lowMemory) {
   #   destinationPath = inputDir,
   #   rasterToMatch = LCC
   # )
-
+  
   ecozone_shp <- prepInputs(
     url = "https://sis.agr.gc.ca/cansis/nsdb/ecostrat/zone/ecozone_shp.zip",
     targetFile = "ecozones.shp",
@@ -316,7 +317,7 @@ if (lowMemory) {
     studyArea = studyArea_ROF,
     targetCRS = targetCRS
   )
-
+  
   ecozone <- fasterize::fasterize(ecozones_shp, ba, field = "ZONE_NAME", fun = "sum")
 }
 
@@ -328,21 +329,23 @@ res(Tave)
 LCC_1km <-terra::aggregate(LCC, fact = 25,fun=modal,dissolve=FALSE)  # 750 m resolution save it please
 res(LCC_1km)
 plot(LCC_1km)
-f3 <- file.path(inputDir, "LCC_1km.tif") # not sure if this is right
-writeRaster(LCC_1km, f3, overwrite = FALSE)
 
-ba_1km <- terra::aggregate(ba, fact = 25,fun=median) # 750 m resolution save it please
+ecozone_1km <- terra::aggregate(ecozone, fact = 25,fun=modal) # 750 m resolution save it please
+res(ecozone_1km)
+
+
+# wheneeve I try this process, my R session closes. I cannot continue. Please, can you run these as save the rasters?
+values(ba) <- runif(ncell(ba))
+ba_1km <- terra::aggregate(ba, fact = 25,fun=mean) # 750 m resolution save it please
 res(ba_1km)
 f4 <- file.path(inputDir, "ba_1km.tif") # not sure if this is right
 writeRaster(ba_1km, f4, overwrite = FALSE)
 
-Tave_1km <- terra::aggregate(Tave, fact = 25,fun=mean) # 750 m resolution save it please
+values(Tave) <- runif(ncell(Tave))
+Tave_1km <- terra::aggregate(Tave, fact = 25,fun=mean,na.rm=TRUE) # 750 m resolution save it please
 res(Tave_1km)
 f5 <- file.path(inputDir, "Tave_1km.tif") # not sure if this is right
 writeRaster(Tave_1km, f5, overwrite = FALSE)
-
-ecozone_1km <- terra::aggregate(ecozone, fact = 25,fun=modal) # 750 m resolution save it please
-res(ecozone_1km)
 
 rasStack0 <- stack(LCC_1km,ba_1km,Tave_1km,ecozone_1km)
 
@@ -353,7 +356,7 @@ modage2 <- bam(
     s(Tave_sm, by = LCC) +
     s(longitude, latitude, bs = "gp", k = 100, m = 2) +
     s(Tave_sm) + s(ecozone, bs = "re"),
-  data = plot3, method = "fREML", family = nb(), drop.intercept = FALSE, discrete = TRUE
+  data = DatasetAge1, method = "fREML", family = nb(), drop.intercept = FALSE, discrete = TRUE
 )
 # need to do some tests, but the model has improved by including the dataset of forest fires larger than 1000 ha.
 AIC(modage2)
@@ -366,9 +369,9 @@ dev.off()
 
 ## TODO: remove duplicate code below / cleanup
 
-plot3$predictAge <- predict(modage2, plot3) #
+DatasetAge1$predictAge <- predict(modage2, DatasetAge1) #
 
-FigHist <- ggplot(plot3, aes(x = TSLF)) +
+FigHist <- ggplot(DatasetAge1, aes(x = TSLF)) +
   xlim(0, 300) +
   geom_histogram() +
   ylab("Observed (Years)") +
@@ -377,7 +380,7 @@ FigHist <- ggplot(plot3, aes(x = TSLF)) +
   ggtitle("Plot age -Input data-") +
   theme_bw()
 
-FigHist2 <- ggplot(plot3, aes(x = exp(predictAge))) +
+FigHist2 <- ggplot(DatasetAge1, aes(x = exp(predictAge))) +
   xlim(0, 300) +
   geom_histogram(fill = "brown4") +
   ylab("Observed (Years)") +
@@ -390,8 +393,8 @@ FigHist2 <- ggplot(plot3, aes(x = exp(predictAge))) +
 ggarrange(FigHist, FigHist2)
 
 # Predicted vs Observed all ecozones included--> new Age layer
-cor.test(exp(plot3$predictAge), plot3$TSLF) #
-Fig1 <- ggplot(plot3, aes(y = TSLF, x = exp(predictAge))) +
+cor.test(exp(DatasetAge1$predictAge), DatasetAge1$TSLF) #
+Fig1 <- ggplot(DatasetAge1, aes(y = TSLF, x = exp(predictAge))) +
   geom_point() +
   ggtitle("Plot age") +
   ylab("Observed (Years)") +
@@ -404,22 +407,22 @@ Fig1 <- ggplot(plot3, aes(y = TSLF, x = exp(predictAge))) +
 Fig1
 
 # ROF region
-plot4 <- plot3
+DatasetAge2 <- DatasetAge1
 # PROBLEM, Altough the projection of the rasters since to be in lat and long, if I plot them I see that they are in UTM, I think.
 # That's why the extract is not working
 plot(predPrevAge)
-coordinates(plot4) <- ~ longitude + latitude
-rasValue0 <- raster::extract(predPrevAge, plot4)
-plot4 <- as.data.frame(cbind(plot4, rasValue0))
-colnames(plot4)[12] <- "PrevAge"
-plot5 <- na.omit(plot4)
+coordinates(DatasetAge2) <- ~ longitude + latitude
+rasValue0 <- raster::extract(predPrevAge, DatasetAge2)
+DatasetAge2 <- as.data.frame(cbind(DatasetAge2, rasValue0))
+colnames(DatasetAge2)[12] <- "PrevAge"
+DatasetAge3 <- na.omit(DatasetAge2)
 
 # to do a fair comparison, we need to remove the plots after 2011, because the previous age layer
-plot5 <- subset(plot5, year_BA < 2012)
+DatasetAge3 <- subset(DatasetAge3, year_BA < 2012)
 
 # Predicted vs Observed for the ROF region--> new Age layer
-cor.test(exp(plot5$predictAge), plot5$TSLF) # significant
-Fig2 <- ggplot(plot5, aes(y = TSLF, x = exp(predictAge))) +
+cor.test(exp(DatasetAge3$predictAge), DatasetAge3$TSLF) # significant
+Fig2 <- ggplot(DatasetAge3, aes(y = TSLF, x = exp(predictAge))) +
   geom_point() +
   ggtitle("ROF region -NEW Age layer-") +
   ylab("Observed (Years)") +
@@ -471,17 +474,17 @@ plot(predAge)
 
 
 # add the values of the previous Age layer to datasets of ground plots
-colnames(plot3)
-plot4 <- plot3
-coordinates(plot4) <- ~ longitude + latitude
-rasValue <- extract(predPrevAge, plot4) ## TODO: object 'rasValue' is overwritten below!
-plot4 <- as.data.frame(cbind(plot4, rasValue))
-colnames(plot4)[11] <- "PrevAge"
+colnames(DatasetAge1)
+DatasetAge2 <- DatasetAge1
+coordinates(DatasetAge2) <- ~ longitude + latitude
+rasValue <- extract(predPrevAge, DatasetAge2) ## TODO: object 'rasValue' is overwritten below!
+DatasetAge2 <- as.data.frame(cbind(DatasetAge2, rasValue))
+colnames(DatasetAge2)[11] <- "PrevAge"
 
-plot4$predictAge <- predict(modage2, plot4)
+DatasetAge2$predictAge <- predict(modage2, DatasetAge2)
 
 # Predicted vs Observed all ecozones included--> new Age layer
-Fig1 <- ggplot(plot4, aes(y = TSLF, x = exp(predictAge))) +
+Fig1 <- ggplot(DatasetAge2, aes(y = TSLF, x = exp(predictAge))) +
   geom_point() +
   ggtitle("Plot age") +
   ylab("Observed (Years)") +
@@ -493,13 +496,13 @@ Fig1 <- ggplot(plot4, aes(y = TSLF, x = exp(predictAge))) +
   theme_bw() +
   theme(legend.position = "right")
 Fig1
-cor.test(exp(plot4$predictAge), plot4$TSLF) ## significant
+cor.test(exp(DatasetAge2$predictAge), DatasetAge2$TSLF) ## significant
 
 # ROF region
-plot5 <- na.omit(plot4)
+DatasetAge3 <- na.omit(DatasetAge2)
 
 # Predicted vs Observed for the ROF region--> new Age layer
-Fig2 <- ggplot(plot5, aes(y = TSLF, x = exp(predictAge))) +
+Fig2 <- ggplot(DatasetAge3, aes(y = TSLF, x = exp(predictAge))) +
   geom_point() +
   ggtitle("ROF region -NEW Age layer-") +
   ylab("Observed (Years)") +
@@ -511,10 +514,10 @@ Fig2 <- ggplot(plot5, aes(y = TSLF, x = exp(predictAge))) +
   theme_bw() +
   theme(legend.position = "right")
 Fig2
-cor.test(exp(plot5$predictAge), plot5$TSLF) ## significant
+cor.test(exp(DatasetAge3$predictAge), DatasetAge3$TSLF) ## significant
 
 # Predicted vs Observed for the ROF region--> old Age layer
-Fig3 <- ggplot(plot5, aes(y = TSLF, x = PrevAge)) +
+Fig3 <- ggplot(DatasetAge3, aes(y = TSLF, x = PrevAge)) +
   geom_point() +
   ggtitle("ROF region -Previous Age layer-") +
   ylab("Observed (Years)") +
@@ -526,7 +529,7 @@ Fig3 <- ggplot(plot5, aes(y = TSLF, x = PrevAge)) +
   theme_bw() +
   theme(legend.position = "right")
 Fig3
-cor.test(exp(plot5$PrevAge), plot5$TSLF) ## non-significant
+cor.test(exp(DatasetAge3$PrevAge), DatasetAge3$TSLF) ## non-significant
 
 ggarrange(Fig2, Fig3, labels = "AUTO")
 
