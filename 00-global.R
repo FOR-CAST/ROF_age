@@ -329,9 +329,9 @@ predPrevAge <- Cache(
   prepInputs,
   url = "https://drive.google.com/file/d/14zxLiW_XVoOeLILi9bqpdTtDzOw4JyuP/",
   targetFile = "standAgeMap_it_1_ts_2011_ProROF.tif",
-  fun = "raster::raster", ## TODO: use terra
-  destinationPath = inputDir,
-  rasterToMatch = LCC
+  fun = "raster::raster",
+  destinationPath = inputDir
+  # rasterToMatch = LCC ## NOTE: don't use RTM here
 )
 
 ## TODO: need ~125m pixels; for now, use lower resolution rasters (1 x 1 km)
@@ -374,9 +374,10 @@ modage2 <- bam(
   TSLF ~ s(total_BA) + ti(total_BA, Tave_sm) + s(total_BA, by = LCC) +
     s(Tave_sm, by = LCC) +
     s(longitude, latitude, bs = "gp", k = 100, m = 2) +
-    s(Tave_sm) + LCC+ 
+    s(Tave_sm) + LCC+
     s(total_BA, by = ecozone) +
-    s(Tave_sm, by = ecozone),weights=(year_BA)^2,
+    s(Tave_sm, by = ecozone),
+  weights = (year_BA)^2,
   data = DatasetAge1, method = "fREML", family = nb(), drop.intercept = FALSE, discrete = TRUE
 )
 # need to do some more tests
@@ -428,21 +429,12 @@ Fig1 <- ggplot(DatasetAge1, aes(y = TSLF, x = (predictAge))) +
   theme_bw()
 Fig1
 
-# ROF region
+## ROF region
 DatasetAge2 <- DatasetAge1
-# PROBLEM, Altough the projection of the rasters since to be in lat and long, if I plot them I see that they are in UTM, I think.
-# That's why the extract is not working
 plot(predPrevAge)
 coordinates(DatasetAge2) <- ~ longitude + latitude
 
-# I have to not match the raster to LCC to make this work, Can you check why the projection in predPrevAge is not right?
-predPrevAge2 <- prepInputs(
-  url = "https://drive.google.com/file/d/14zxLiW_XVoOeLILi9bqpdTtDzOw4JyuP/",
-  targetFile = "standAgeMap_it_1_ts_2011_ProROF.tif",
-  fun = "raster::raster", ## TODO: use terra
-  destinationPath = inputDir
-)
-rasValue0 <- raster::extract(predPrevAge2, DatasetAge2)
+rasValue0 <- raster::extract(predPrevAge, DatasetAge2)
 DatasetAge2 <- as.data.frame(cbind(DatasetAge2, rasValue0))
 colnames(DatasetAge2)[12] <- "PrevAge"
 DatasetAge3 <- na.omit(DatasetAge2)
