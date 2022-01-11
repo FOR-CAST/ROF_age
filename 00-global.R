@@ -417,7 +417,10 @@ Fig1
 
 # ROF region
 plot4 <- plot3
-coordinates(plot4) <- ~ longitude + latitude
+# PROBLEM, Altough the projection of the rasters since to be in lat and long, if I plot them I see that they are in UTM, I think.
+# That's why the extract is not working
+plot(predPrevAge)
+coordinates(plot4) <- ~ longitude + latitude 
 rasValue0 <- raster::extract(predPrevAge, plot4)
 plot4 <- as.data.frame(cbind(plot4, rasValue0))
 colnames(plot4)[12] <- "PrevAge"
