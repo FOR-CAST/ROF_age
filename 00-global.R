@@ -194,7 +194,7 @@ summary(plot2$ecozone)
 levels(plot2$ecozone)[levels(plot2$ecozone)=="TAIGA SHIELD EAST"] <- "TAIGA SHIELD"
 levels(plot2$ecozone)[levels(plot2$ecozone)=="TAIGA SHIELD WEST"] <- "TAIGA SHIELD"
 plot3<-plot2
-#plot3<-subset(plot3,Type!='BNFF')
+plot3<-subset(plot3,Type!='BNFF')
 #plot3<-subset(plot2,Type!='BNFF'&total_BA>0)
 #plot3<-subset(plot3,total_BA>0)
 plot3<-subset(plot3,total_BA<80)# 
