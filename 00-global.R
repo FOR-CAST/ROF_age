@@ -3,7 +3,7 @@ if (!exists("pkgDir")) {
     version$major, ".",
     strsplit(version$minor, "[.]")[[1]][1]
   ))
-  
+
   if (!dir.exists(pkgDir)) {
     dir.create(pkgDir, recursive = TRUE)
   }
@@ -31,7 +31,7 @@ Require(pkgs2) ## install if needed, and load/attach
 sptlPkgs <- c("rgdal", "sf", "terra", "raster", "rgeos") ## TODO: remove raster
 if (!all(sptlPkgs %in% rownames(installed.packages()))) {
   install.packages(sptlPkgs, repos = "https://cran.rstudio.com")
-  
+
   sf::sf_extSoftVersion() ## want GEOS 3.9.0, GDAL 3.2.1, PROJ 7.2.1 or higher
 }
 Require(c(sptlPkgs, "fasterize"))
@@ -68,9 +68,9 @@ opts <- options(
 
 ## input data
 
-f01 <- file.path(inputDir, ".txt")#DatasetAgeNA
+f01 <- file.path(inputDir, "DatasetAgeNA.txt")
 if (!file.exists(f01)) {
-  drive_download(as_id("1Ig7pNz1eYk5zWTYYpeR5LLYvdGzbV8Mx"), path = f01, overwrite = TRUE)
+  drive_download(as_id("1Ig7pNz1eYk5zWTYYpeR5LLYvdGzbV8Mx"), path = f01)
 }
 DatasetAge0 <- read.table(f01, header = TRUE, sep = "\t", fill = TRUE, dec = ".") ## TODO: fix error: more columns than column names
 colnames(DatasetAge0)
@@ -86,8 +86,10 @@ DatasetAge0 <- drop_na(DatasetAge0, TSLF)
 DatasetAge0 <- subset(DatasetAge0, ecozone_combined != c("ALASKA INT"))
 colnames(DatasetAge0)
 DatasetAge0$Type <- "Synthesis"
-dataSyn <- DatasetAge0[, c("Type", "site_ID", "burn_ID", "latitude", "longitude", "ecozone", "TSLF",
-                     "year_BA", "PPT_sm", "Tave_sm", "DD5", "total_BA", "LCC")]
+dataSyn <- DatasetAge0[, c(
+  "Type", "site_ID", "burn_ID", "latitude", "longitude", "ecozone", "TSLF",
+  "year_BA", "PPT_sm", "Tave_sm", "DD5", "total_BA", "LCC"
+)]
 dataSyn$ecozone <- as.factor(dataSyn$ecozone)
 summary(dataSyn$ecozone)
 dataSyn <- subset(dataSyn, ecozone != c("WESTERN CORDILLERA"))
@@ -104,7 +106,7 @@ dataSyn2$year_BA <- as.integer(dataSyn2$year_BA)
 # BNFF, NFI, TREESOURCE
 f02 <- file.path(inputDir, "ExtractFirePoints_LCC15_BA15_Ecozone_ROF_ClimaRed2.txt")
 if (!file.exists(f02)) {
-  drive_download(as_id("1cpgqsFEV6QUD_ZhKLsgn4mA8GwbFLVcD"), path = f02) # , overwrite =FALSE
+  drive_download(as_id("1cpgqsFEV6QUD_ZhKLsgn4mA8GwbFLVcD"), path = f02)
 }
 
 dataFF <- read.table(f02, header = TRUE, sep = "\t", fill = TRUE, dec = ".")
@@ -112,8 +114,8 @@ colnames(dataFF)
 colnames(dataFF)[8] <- "year_BA"
 colnames(dataFF)[5] <- "LCC"
 dataFF$Type <- "BNFF"
-## TODO: which sive to use as threhold? Including all forest fires, the model doesn't perform well.
-dataFF <- subset(dataFF, SIZE_HA > 499)# I suggest taking only large forest fires
+## TODO: which size to use as threhold? Including all forest fires, the model doesn't perform well.
+dataFF <- subset(dataFF, SIZE_HA > 499) # I suggest taking only large forest fires
 dataFF <- dataFF[, c("Type", "site_ID", "burn_ID", "latitude", "longitude", "ecozone", "TSLF", "year_BA", "total_BA", "LCC")]
 dataFF2 <- dataFF[, c(2, 4, 5)]
 unique(length(dataFF2$site_ID))
@@ -128,8 +130,10 @@ dataFF2clima <- read.table(f03, header = TRUE, sep = ",", fill = TRUE, dec = "."
 colnames(dataFF2clima) <- c("FID", "site_ID", "latitude", "longitude", "PPT_sm", "Tave_sm", "DD5")
 dataFF2clima <- subset(dataFF2clima, PPT_sm > 0 & site_ID != 0)
 dataFF2 <- merge(dataFF, dataFF2clima[, -1], by = c("site_ID", "latitude", "longitude"))
-dataFF2 <- dataFF2[, c("Type", "site_ID", "burn_ID", "latitude", "longitude", "ecozone", "TSLF",
-                       "year_BA", "PPT_sm", "Tave_sm", "DD5", "total_BA", "LCC")]
+dataFF2 <- dataFF2[, c(
+  "Type", "site_ID", "burn_ID", "latitude", "longitude", "ecozone", "TSLF",
+  "year_BA", "PPT_sm", "Tave_sm", "DD5", "total_BA", "LCC"
+)]
 
 f04 <- file.path(inputDir, "FinalNFI&TreeSource.txt") #
 if (!file.exists(f04)) {
@@ -139,15 +143,17 @@ dataNFIMORE <- read.table(f04, header = TRUE, sep = "\t", fill = TRUE, dec = "."
 colnames(dataNFIMORE)[6] <- "ecozone"
 dataFF2 <- rbind(dataFF2, dataNFIMORE)
 unique(dataFF2$Type)
-dataFF2$Type<-as.factor(dataFF2$Type)
+dataFF2$Type <- as.factor(dataFF2$Type)
 summary(dataFF2$Type)
 dataFF2$ecozone <- as.factor(dataFF2$ecozone)
 summary(dataFF2$ecozone)
 levels(dataFF2$ecozone) <- toupper(levels(dataFF2$ecozone))
 summary(dataFF2$ecozone)
 dataFF3 <- dataFF2[grepl(paste("ATLANTIC MARITIME", "BOREAL CORDILLERA", "BOREAL PLAIN", "BOREAL SHIELD",
-                               "HUDSON PLAIN", "MONTANE CORDILLERA", "PACIFIC MARITIME", "TAIGA CORDILLERA",
-                               "TAIGA PLAIN", "TAIGA SHIELD", "MIXEDWOOD PLAIN", sep = "|"), dataFF2$ecozone), ]
+  "HUDSON PLAIN", "MONTANE CORDILLERA", "PACIFIC MARITIME", "TAIGA CORDILLERA",
+  "TAIGA PLAIN", "TAIGA SHIELD", "MIXEDWOOD PLAIN",
+  sep = "|"
+), dataFF2$ecozone), ]
 summary(dataFF3$ecozone)
 range(dataFF3$PPT_sm)
 range(dataFF3$Tave_sm)
@@ -184,8 +190,10 @@ DatasetAge1 <- DatasetAge0
 # DatasetAge1<-subset(DatasetAge1,total_BA>0)
 hist(DatasetAge1$total_BA)
 summary(DatasetAge1$ecozone)
-DatasetAge1 <- DatasetAge1[which(!(DatasetAge1$ecozone %in% c("TAIGA CORDILLERA", "PACIFIC MARITIME", "MIXEDWOOD PLAIN",
-                                            "ATLANTIC MARITIME", "BOREAL CORDILLERA", "MONTANE CORDILLERA"))), ]
+DatasetAge1 <- DatasetAge1[which(!(DatasetAge1$ecozone %in% c(
+  "TAIGA CORDILLERA", "PACIFIC MARITIME", "MIXEDWOOD PLAIN",
+  "ATLANTIC MARITIME", "BOREAL CORDILLERA", "MONTANE CORDILLERA"
+))), ]
 
 DatasetAge1$LCC <- as.numeric(DatasetAge1$LCC)
 DatasetAge1 <- DatasetAge1[which(DatasetAge1$LCC < 15), ]
@@ -219,7 +227,7 @@ if (lowMemory) {
     fun = "raster::raster", ## TODO: use terra
     destinationPath = inputDir
   )
-  
+
   ## NOTE: reprojecting rasters in memory requires too much RAM to not use GDAL (see options above)
   ba <- Cache(
     prepInputs,
@@ -229,7 +237,7 @@ if (lowMemory) {
     destinationPath = inputDir,
     rasterToMatch = LCC
   )
-  
+
   Tave <- Cache(
     prepInputs,
     url = "https://drive.google.com/file/d/1HT0swKK22D59n47RbbBJAyC1qGlAGb-E/",
@@ -238,7 +246,7 @@ if (lowMemory) {
     destinationPath = inputDir,
     rasterToMatch = LCC
   )
-  
+
   ecozone <- Cache(
     prepInputs,
     url = "https://drive.google.com/file/d/1IwRayjkjOGFjIUDfCYyPsKmgx9MRGqKA/",
@@ -247,7 +255,7 @@ if (lowMemory) {
     destinationPath = inputDir,
     rasterToMatch = LCC
   )
-  
+
   predPrevAge <- prepInputs(
     url = "https://drive.google.com/file/d/14zxLiW_XVoOeLILi9bqpdTtDzOw4JyuP/",
     targetFile = "standAgeMap_it_1_ts_2011_ProROF.tif",
@@ -257,7 +265,7 @@ if (lowMemory) {
   )
 } else {
   ## use national layers
-  
+
   ## from https://open.canada.ca/data/en/dataset/4e615eae-b90c-420b-adee-2ca35896caf6
   LCC <- Cache(
     prepInputs,
@@ -271,18 +279,18 @@ if (lowMemory) {
     studyArea = studyArea_ROF,
     targetCRS = targetCRS
   )
-  
+
   ## from https://open.canada.ca/data/en/dataset/4c0d9755-9347-42f2-bb1b-f4d2ff673254
   ba <- Cache(
     prepInputs,
-    #url = "https://opendata.nfis.org/downloads/forest_change/CA_forest_basal_area_2015_NN.zip", ## TODO: server problem
+    # url = "https://opendata.nfis.org/downloads/forest_change/CA_forest_basal_area_2015_NN.zip", ## TODO: server problem
     url = "https://drive.google.com/file/d/1Vyqb3Q-2T45v963RlFb6EApqyPSMKwKO/",
     targetFile = "CA_forest_basal_area_2015_NN.tif", alsoExtract = "similar",
     fun = "raster::raster",
     destinationPath = inputDir,
     rasterToMatch = LCC
   )
-  
+
   Tave <- Cache(
     prepInputs,
     url = "https://s3-us-west-2.amazonaws.com/www.cacpd.org/CMIP6/normals/Normal_1981_2010_bioclim.zip",
@@ -291,7 +299,7 @@ if (lowMemory) {
     destinationPath = inputDir,
     rasterToMatch = LCC
   )
-  
+
   ## TODO: use finer-resolution climate data from ClimateNA desktop app:
   # ft <- "Normal_1981_2010S/Tave_sm.asc"
   # fz <- file.path(inputDir, "Normal_1981_2010S.zip")
@@ -308,7 +316,7 @@ if (lowMemory) {
   #   destinationPath = inputDir,
   #   rasterToMatch = LCC
   # )
-  
+
   ecozone_shp <- prepInputs(
     url = "https://sis.agr.gc.ca/cansis/nsdb/ecostrat/zone/ecozone_shp.zip",
     targetFile = "ecozones.shp",
@@ -317,7 +325,7 @@ if (lowMemory) {
     studyArea = studyArea_ROF,
     targetCRS = targetCRS
   )
-  
+
   ecozone <- fasterize::fasterize(ecozones_shp, ba, field = "ZONE_NAME", fun = "sum")
 }
 
@@ -326,28 +334,26 @@ res(LCC)
 res(ba)
 res(Tave)
 
-LCC_1km <-terra::aggregate(LCC, fact = 25,fun=modal,dissolve=FALSE)  # 750 m resolution. This takes 5'
+LCC_1km <- terra::aggregate(LCC, fact = 25, fun = modal, dissolve = FALSE) # 750 m resolution.
 res(LCC_1km)
 plot(LCC_1km)
 
-ecozone_1km <- terra::aggregate(ecozone, fact = 25,fun=modal) # 750 m resolution. This takes 5'
+ecozone_1km <- terra::aggregate(ecozone, fact = 25, fun = modal) # 750 m resolution.
 res(ecozone_1km)
 
-
-# wheneeve I try this process, my R session closes. I cannot continue. Please, can you run these as save the rasters?
 values(ba) <- runif(ncell(ba))
-ba_1km <- terra::aggregate(ba, fact = 25,fun=mean,na.rm=TRUE) # 750 m resolution save it please. I cannot run it.  
+ba_1km <- terra::aggregate(ba, fact = 25, fun = mean, na.rm = TRUE) # 750 m resolution.
 res(ba_1km)
-f4 <- file.path(inputDir, "ba_1km.tif") # not sure if this is right
-writeRaster(ba_1km, f4, overwrite = FALSE)
+f4 <- file.path(inputDir, "ba_1km.tif")
+writeRaster(ba_1km, f4)
 
 values(Tave) <- runif(ncell(Tave))
-Tave_1km <- terra::aggregate(Tave, fact = 25,fun=mean,na.rm=TRUE) # 750 m resolution save it please
+Tave_1km <- terra::aggregate(Tave, fact = 25, fun = mean, na.rm = TRUE) # 750 m resolution.
 res(Tave_1km)
-f5 <- file.path(inputDir, "Tave_1km.tif") # not sure if this is right
-writeRaster(Tave_1km, f5, overwrite = FALSE)
+f5 <- file.path(inputDir, "Tave_1km.tif")
+writeRaster(Tave_1km, f5)
 
-rasStack0 <- stack(LCC_1km,ba_1km,Tave_1km,ecozone_1km)
+rasStack0 <- stack(LCC_1km, ba_1km, Tave_1km, ecozone_1km)
 
 ## the model
 ## NOTE: need too much RAM to run below with the parameter select=TRUE
@@ -355,7 +361,7 @@ modage2 <- bam(
   log(TSLF) ~ s(total_BA) + ti(total_BA, Tave_sm) + s(total_BA, by = LCC) +
     s(Tave_sm, by = LCC) +
     s(longitude, latitude, bs = "gp", k = 100, m = 2) +
-    s(Tave_sm) + ecozone+ 
+    s(Tave_sm) + ecozone +
     s(total_BA, by = ecozone) +
     s(Tave_sm, by = ecozone),
   data = DatasetAge1, method = "fREML", drop.intercept = FALSE, discrete = TRUE
