@@ -272,9 +272,10 @@ if (lowMemory) {
   )
 
   ## from https://open.canada.ca/data/en/dataset/4c0d9755-9347-42f2-bb1b-f4d2ff673254
-  ba <- Cache(
+   ba <- Cache(
     prepInputs,
-    url = "https://opendata.nfis.org/downloads/forest_change/CA_forest_basal_area_2015_NN.zip", ## TODO: server problem
+    #url = "https://opendata.nfis.org/downloads/forest_change/CA_forest_basal_area_2015_NN.zip", ## TODO: server problem
+    url = "https://drive.google.com/file/d/1Vyqb3Q-2T45v963RlFb6EApqyPSMKwKO/",# It is in drive as well
     targetFile = "CA_forest_basal_area_2015_NN.tif", alsoExtract = "similar",
     fun = "raster::raster",
     destinationPath = inputDir,
