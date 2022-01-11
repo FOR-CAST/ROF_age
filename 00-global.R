@@ -72,7 +72,7 @@ f01 <- file.path(inputDir, "DatasetAgeNA.txt") #
 if (!file.exists(f01)) {
   drive_download(as_id("1Ig7pNz1eYk5zWTYYpeR5LLYvdGzbV8Mx"), path = f01)
 }
-plot2 <- read.table(f01, header = TRUE, sep = " ", fill = TRUE, dec = ".") # It is loading the old txt file, why??? Does it work for you?
+plot2 <- read.table(f01, header = TRUE, sep = " ", fill = TRUE, dec = ".") ## TODO: fix error: more columns than column names
 colnames(plot2)
 plot2$ecozone_combined <- as.factor(plot2$ecozone_combined)
 plot2$ecozone_combined <- factor(plot2$ecozone_combined, levels(plot2$ecozone_combined)[c(1, 2, 4, 6, 3, 5)])
@@ -103,7 +103,7 @@ dataSyn2 <- drop_na(dataSyn, total_BA)
 dataSyn2$year_BA <- as.integer(dataSyn2$year_BA)
 
 # BNFF, NFI, TREESOURCE
-f02 <- file.path(inputDir, "ExtractFirePoints_LCC15_BA15_Ecozone_ROF_ClimaRed2.txt") # same it continues reading previous versions
+f02 <- file.path(inputDir, "ExtractFirePoints_LCC15_BA15_Ecozone_ROF_ClimaRed2.txt")
 if (!file.exists(f02)) {
   drive_download(as_id("1cpgqsFEV6QUD_ZhKLsgn4mA8GwbFLVcD"), path = f02) # , overwrite =FALSE
 }
@@ -118,22 +118,15 @@ dataFF <- subset(dataFF, SIZE_HA > 999)
 dataFF <- dataFF[, c("Type", "site_ID", "burn_ID", "latitude", "longitude", "ecozone", "TSLF", "year_BA", "total_BA", "LCC")]
 dataFF2 <- dataFF[, c(2, 4, 5)]
 unique(length(dataFF2$site_ID))
-colnames(dataFF2)[1] <- "ID1"
-colnames(dataFF2)[2] <- "lat"
-colnames(dataFF2)[3] <- "lon"
+colnames(dataFF2) <- c("ID1", "lat", "lon")
 
-## TODO: add the climate from the raster. I did it in ArcMap
+## TODO: add the climate from the raster (done in ArcMap)
 f03 <- file.path(inputDir, "CoordFF2clima.txt") #
 if (!file.exists(f03)) {
   drive_download(as_id("1cQHieqwJPej13D76rDhGiYiSND-sOzwD"), path = f03) # , overwrite =FALSE
 }
 dataFF2clima <- read.table(f03, header = TRUE, sep = ",", fill = TRUE, dec = ".")
-colnames(dataFF2clima)[2] <- "site_ID" ## TODO: do this once
-colnames(dataFF2clima)[3] <- "latitude"
-colnames(dataFF2clima)[4] <- "longitude"
-colnames(dataFF2clima)[5] <- "PPT_sm"
-colnames(dataFF2clima)[6] <- "Tave_sm"
-colnames(dataFF2clima)[7] <- "DD5"
+colnames(dataFF2clima) <- c("FID", "site_ID", "latitude", "longitude", "PPT_sm", "Tave_sm", "DD5")
 dataFF2clima <- subset(dataFF2clima, PPT_sm > 0 & site_ID != 0)
 dataFF2 <- merge(dataFF, dataFF2clima[, -1], by = c("site_ID", "latitude", "longitude"))
 dataFF2 <- dataFF2[, c("Type", "site_ID", "burn_ID", "latitude", "longitude", "ecozone", "TSLF",
@@ -149,23 +142,11 @@ dataFF2 <- rbind(dataFF2, dataNFIMORE)
 unique(dataFF2$Type)
 dataFF2$ecozone <- as.factor(dataFF2$ecozone)
 summary(dataFF2$ecozone)
-levels(dataFF2$ecozone) <- toupper(levels(dataFF2$ecozone)) ## TODO: confirm this works, remove below
-levels(dataFF2$ecozone)[levels(dataFF2$ecozone) == "Atlantic Maritime"] <- "ATLANTIC MARITIME"
-levels(dataFF2$ecozone)[levels(dataFF2$ecozone) == "Boreal PLain"] <- "BOREAL PLAIN"
-levels(dataFF2$ecozone)[levels(dataFF2$ecozone) == "Boreal Shield"] <- "BOREAL SHIELD"
-levels(dataFF2$ecozone)[levels(dataFF2$ecozone) == "Hudson Plain"] <- "HUDSON PLAIN"
-levels(dataFF2$ecozone)[levels(dataFF2$ecozone) == "Boreal Cordillera"] <- "BOREAL CORDILLERA"
-levels(dataFF2$ecozone)[levels(dataFF2$ecozone) == "Montane Cordillera"] <- "MONTANE CORDILLERA"
-levels(dataFF2$ecozone)[levels(dataFF2$ecozone) == "Pacific Maritime"] <- "PACIFIC MARITIME"
-levels(dataFF2$ecozone)[levels(dataFF2$ecozone) == "Taiga Cordillera"] <- "TAIGA CORDILLERA"
-levels(dataFF2$ecozone)[levels(dataFF2$ecozone) == "Taiga Plain"] <- "TAIGA PLAIN"
-levels(dataFF2$ecozone)[levels(dataFF2$ecozone) == "Taiga Shield"] <- "TAIGA SHIELD"
-levels(dataFF2$ecozone)[levels(dataFF2$ecozone) == "MixedWood Plain"] <- "MIXEDWOOD PLAIN"
+levels(dataFF2$ecozone) <- toupper(levels(dataFF2$ecozone))
 summary(dataFF2$ecozone)
 dataFF3 <- dataFF2[grepl(paste("ATLANTIC MARITIME", "BOREAL CORDILLERA", "BOREAL PLAIN", "BOREAL SHIELD",
                                "HUDSON PLAIN", "MONTANE CORDILLERA", "PACIFIC MARITIME", "TAIGA CORDILLERA",
                                "TAIGA PLAIN", "TAIGA SHIELD", "MIXEDWOOD PLAIN", sep = "|"), dataFF2$ecozone), ]
-
 summary(dataFF3$ecozone)
 range(dataFF3$PPT_sm)
 range(dataFF3$Tave_sm)
