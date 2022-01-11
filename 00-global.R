@@ -3,7 +3,7 @@ if (!exists("pkgDir")) {
     version$major, ".",
     strsplit(version$minor, "[.]")[[1]][1]
   ))
-  
+
   if (!dir.exists(pkgDir)) {
     dir.create(pkgDir, recursive = TRUE)
   }
@@ -24,14 +24,14 @@ pkgs1 <- c( ## TODO: remove unused packages
 Require(pkgs1, Require = FALSE) ## don't load/attach yet, just ensure these get installed
 
 pkgs2 <- c(
-  "googledrive"
+  "googledrive", "tidyr"
 )
 Require(pkgs2) ## install if needed, and load/attach
 
 sptlPkgs <- c("rgdal", "sf", "terra", "raster", "rgeos") ## TODO: remove raster
 if (!all(sptlPkgs %in% rownames(installed.packages()))) {
   install.packages(sptlPkgs, repos = "https://cran.rstudio.com")
-  
+
   sf::sf_extSoftVersion() ## want GEOS 3.9.0, GDAL 3.2.1, PROJ 7.2.1 or higher
 }
 Require(c(sptlPkgs, "fasterize"))
@@ -67,103 +67,104 @@ opts <- options(
 ##   https://drive.google.com/drive/folders/1ZM8i8VZ8BcsxEdxWPE2S-AMO0JvQ9DRI
 
 ## input data
-# we can remove "FinalAllAgeDataset2.txt" from google drive
 
-f01 <- file.path(inputDir, "DatasetAgeNA.txt")#
+f01 <- file.path(inputDir, "DatasetAgeNA.txt") #
 if (!file.exists(f01)) {
-  drive_download(as_id("1Ig7pNz1eYk5zWTYYpeR5LLYvdGzbV8Mx"), path = f01)#, overwrite =FALSE
+  drive_download(as_id("1Ig7pNz1eYk5zWTYYpeR5LLYvdGzbV8Mx"), path = f01)
 }
-plot2<-read.table(f01, header=T, sep=" ", fill=T, dec=".")# It is loading the old txt file, why??? Does it work for you?
+plot2 <- read.table(f01, header = TRUE, sep = " ", fill = TRUE, dec = ".") # It is loading the old txt file, why??? Does it work for you?
 colnames(plot2)
-plot2$ecozone_combined<-as.factor(plot2$ecozone_combined)
-plot2$ecozone_combined= factor(plot2$ecozone_combined,levels(plot2$ecozone_combined)[c(1,2,4,6,3,5)])
-plot2$year_BA<-as.factor(plot2$year_BA)
+plot2$ecozone_combined <- as.factor(plot2$ecozone_combined)
+plot2$ecozone_combined <- factor(plot2$ecozone_combined, levels(plot2$ecozone_combined)[c(1, 2, 4, 6, 3, 5)])
+plot2$year_BA <- as.factor(plot2$year_BA)
 summary(plot2$ecozone_combined)
 str(plot2)
 summary(plot2$project_ID)
-#plot2<-subset(plot2,project_ID!='BurnedNWT')
-plot2$year_BA<-as.numeric(as.character(plot2$year_BA))
-plot2<-plot2%>%drop_na(latitude)
-plot2<-plot2%>%drop_na(TSLF)
-plot2<-subset(plot2,ecozone_combined!=c('ALASKA INT'))
+# plot2<-subset(plot2,project_ID!='BurnedNWT')
+plot2$year_BA <- as.numeric(as.character(plot2$year_BA))
+plot2 <- drop_na(plot2, latitude)
+plot2 <- drop_na(plot2, TSLF)
+plot2 <- subset(plot2, ecozone_combined != c("ALASKA INT"))
 colnames(plot2)
-plot2$Type<-"Synthesis"
-dataSyn<-plot2[,c("Type","site_ID","burn_ID","latitude","longitude","ecozone","TSLF","year_BA","PPT_sm","Tave_sm","DD5","total_BA","LCC")]
-dataSyn$ecozone<-as.factor(dataSyn$ecozone)
+plot2$Type <- "Synthesis"
+dataSyn <- plot2[, c("Type", "site_ID", "burn_ID", "latitude", "longitude", "ecozone", "TSLF",
+                     "year_BA", "PPT_sm", "Tave_sm", "DD5", "total_BA", "LCC")]
+dataSyn$ecozone <- as.factor(dataSyn$ecozone)
 summary(dataSyn$ecozone)
-dataSyn<-subset(dataSyn,ecozone!=c('WESTERN CORDILLERA'))
+dataSyn <- subset(dataSyn, ecozone != c("WESTERN CORDILLERA"))
 levels(droplevels(dataSyn$ecozone))
-dataSyn$LCC<-as.factor((dataSyn$LCC))
+dataSyn$LCC <- as.factor((dataSyn$LCC))
 summary(dataSyn$LCC)
-dataSyn$LCC<-as.factor(as.character(dataSyn$LCC))
+dataSyn$LCC <- as.factor(as.character(dataSyn$LCC))
 summary(dataSyn$LCC)
-dataSyn<-dataSyn[dataSyn$LCC != "0",]
+dataSyn <- dataSyn[dataSyn$LCC != "0", ]
 droplevels(dataSyn$LCC)
-dataSyn2<-dataSyn%>%drop_na(total_BA)
-dataSyn2$year_BA<-as.integer(dataSyn2$year_BA)
+dataSyn2 <- drop_na(dataSyn, total_BA)
+dataSyn2$year_BA <- as.integer(dataSyn2$year_BA)
 
 # BNFF, NFI, TREESOURCE
-f02 <- file.path(inputDir, "ExtractFirePoints_LCC15_BA15_Ecozone_ROF_ClimaRed2.txt")#same it continues reading previous versions
+f02 <- file.path(inputDir, "ExtractFirePoints_LCC15_BA15_Ecozone_ROF_ClimaRed2.txt") # same it continues reading previous versions
 if (!file.exists(f02)) {
-  drive_download(as_id("1cpgqsFEV6QUD_ZhKLsgn4mA8GwbFLVcD"), path = f02)#, overwrite =FALSE
+  drive_download(as_id("1cpgqsFEV6QUD_ZhKLsgn4mA8GwbFLVcD"), path = f02) # , overwrite =FALSE
 }
 
-dataFF<-read.table(f02, header=T, sep="\t", fill=T, dec=".")
+dataFF <- read.table(f02, header = TRUE, sep = "\t", fill = TRUE, dec = ".")
 colnames(dataFF)
-colnames(dataFF)[8]<-"year_BA"
-colnames(dataFF)[5]<-"LCC"
-dataFF$Type<-"BNFF"
-dataFF<-subset(dataFF,SIZE_HA>999)# ASK WHICH SIZE SHOULD WE USE AS A THRESHOLD. Including all forest fires, the model doesn't perform well. 
-dataFF<-dataFF[,c("Type","site_ID","burn_ID","latitude","longitude","ecozone","TSLF","year_BA","total_BA","LCC")]
-dataFF2<-dataFF[,c(2,4,5)]
+colnames(dataFF)[8] <- "year_BA"
+colnames(dataFF)[5] <- "LCC"
+dataFF$Type <- "BNFF"
+## TODO: which sive to use as threhold? Including all forest fires, the model doesn't perform well.
+dataFF <- subset(dataFF, SIZE_HA > 999)
+dataFF <- dataFF[, c("Type", "site_ID", "burn_ID", "latitude", "longitude", "ecozone", "TSLF", "year_BA", "total_BA", "LCC")]
+dataFF2 <- dataFF[, c(2, 4, 5)]
 unique(length(dataFF2$site_ID))
-colnames(dataFF2)[1]<-"ID1"
-colnames(dataFF2)[2]<-"lat"
-colnames(dataFF2)[3]<-"lon"
-# I have to add the climate from the raster. I did it in ArcMap
-f03 <- file.path(inputDir, "CoordFF2clima.txt")#
-if (!file.exists(f03)) {
-  drive_download(as_id("1cQHieqwJPej13D76rDhGiYiSND-sOzwD"), path = f03)#, overwrite =FALSE
-}
-dataFF2clima<-read.table(f03, header=T, sep=",", fill=T, dec=".")
-colnames(dataFF2clima)[2]<-"site_ID"
-colnames(dataFF2clima)[3]<-"latitude"
-colnames(dataFF2clima)[4]<-"longitude"
-colnames(dataFF2clima)[5]<-"PPT_sm"
-colnames(dataFF2clima)[6]<-"Tave_sm"
-colnames(dataFF2clima)[7]<-"DD5"
-dataFF2clima<-subset(dataFF2clima,PPT_sm>0&site_ID!=0)
-dataFF2<-merge(dataFF,dataFF2clima[,-1],by=c("site_ID","latitude","longitude"))
-dataFF2<-dataFF2[,c("Type","site_ID","burn_ID","latitude","longitude","ecozone","TSLF","year_BA","PPT_sm","Tave_sm","DD5","total_BA","LCC")]
+colnames(dataFF2)[1] <- "ID1"
+colnames(dataFF2)[2] <- "lat"
+colnames(dataFF2)[3] <- "lon"
 
-f04 <- file.path(inputDir, "FinalNFI&TreeSource.txt")#
-if (!file.exists(f04)) {
-  drive_download(as_id("1ROJeiPdI7fvdcPm9MMQMJTseLko0-TZR"), path = f04)#, overwrite =FALSE
+## TODO: add the climate from the raster. I did it in ArcMap
+f03 <- file.path(inputDir, "CoordFF2clima.txt") #
+if (!file.exists(f03)) {
+  drive_download(as_id("1cQHieqwJPej13D76rDhGiYiSND-sOzwD"), path = f03) # , overwrite =FALSE
 }
-dataNFIMORE<-read.table(f04, header=T, sep="\t", fill=T, dec=".")
-colnames(dataNFIMORE)[6]<-"ecozone"
-dataFF2<-rbind(dataFF2,dataNFIMORE)
+dataFF2clima <- read.table(f03, header = TRUE, sep = ",", fill = TRUE, dec = ".")
+colnames(dataFF2clima)[2] <- "site_ID" ## TODO: do this once
+colnames(dataFF2clima)[3] <- "latitude"
+colnames(dataFF2clima)[4] <- "longitude"
+colnames(dataFF2clima)[5] <- "PPT_sm"
+colnames(dataFF2clima)[6] <- "Tave_sm"
+colnames(dataFF2clima)[7] <- "DD5"
+dataFF2clima <- subset(dataFF2clima, PPT_sm > 0 & site_ID != 0)
+dataFF2 <- merge(dataFF, dataFF2clima[, -1], by = c("site_ID", "latitude", "longitude"))
+dataFF2 <- dataFF2[, c("Type", "site_ID", "burn_ID", "latitude", "longitude", "ecozone", "TSLF",
+                       "year_BA", "PPT_sm", "Tave_sm", "DD5", "total_BA", "LCC")]
+
+f04 <- file.path(inputDir, "FinalNFI&TreeSource.txt") #
+if (!file.exists(f04)) {
+  drive_download(as_id("1ROJeiPdI7fvdcPm9MMQMJTseLko0-TZR"), path = f04) # , overwrite =FALSE
+}
+dataNFIMORE <- read.table(f04, header = TRUE, sep = "\t", fill = TRUE, dec = ".")
+colnames(dataNFIMORE)[6] <- "ecozone"
+dataFF2 <- rbind(dataFF2, dataNFIMORE)
 unique(dataFF2$Type)
-dataFF2$ecozone<-as.factor(dataFF2$ecozone)
+dataFF2$ecozone <- as.factor(dataFF2$ecozone)
 summary(dataFF2$ecozone)
-levels(dataFF2$ecozone)[levels(dataFF2$ecozone)=="Atlantic Maritime"] <- "ATLANTIC MARITIME"
-levels(dataFF2$ecozone)[levels(dataFF2$ecozone)=="Boreal PLain"] <- "BOREAL PLAIN"
-levels(dataFF2$ecozone)[levels(dataFF2$ecozone)=="Boreal Shield"] <- "BOREAL SHIELD"
-levels(dataFF2$ecozone)[levels(dataFF2$ecozone)=="Hudson Plain"] <- "HUDSON PLAIN"
-levels(dataFF2$ecozone)[levels(dataFF2$ecozone)=="Boreal Cordillera"] <- "BOREAL CORDILLERA"
-levels(dataFF2$ecozone)[levels(dataFF2$ecozone)=="Montane Cordillera"] <- "MONTANE CORDILLERA"
-levels(dataFF2$ecozone)[levels(dataFF2$ecozone)=="Pacific Maritime"] <- "PACIFIC MARITIME"
-levels(dataFF2$ecozone)[levels(dataFF2$ecozone)=="Taiga Cordillera"] <- "TAIGA CORDILLERA"
-levels(dataFF2$ecozone)[levels(dataFF2$ecozone)=="Taiga Plain"] <- "TAIGA PLAIN"
-levels(dataFF2$ecozone)[levels(dataFF2$ecozone)=="Taiga Shield"] <- "TAIGA SHIELD"
-levels(dataFF2$ecozone)[levels(dataFF2$ecozone)=="MixedWood Plain"] <- "MIXEDWOOD PLAIN"
+levels(dataFF2$ecozone) <- toupper(levels(dataFF2$ecozone)) ## TODO: confirm this works, remove below
+levels(dataFF2$ecozone)[levels(dataFF2$ecozone) == "Atlantic Maritime"] <- "ATLANTIC MARITIME"
+levels(dataFF2$ecozone)[levels(dataFF2$ecozone) == "Boreal PLain"] <- "BOREAL PLAIN"
+levels(dataFF2$ecozone)[levels(dataFF2$ecozone) == "Boreal Shield"] <- "BOREAL SHIELD"
+levels(dataFF2$ecozone)[levels(dataFF2$ecozone) == "Hudson Plain"] <- "HUDSON PLAIN"
+levels(dataFF2$ecozone)[levels(dataFF2$ecozone) == "Boreal Cordillera"] <- "BOREAL CORDILLERA"
+levels(dataFF2$ecozone)[levels(dataFF2$ecozone) == "Montane Cordillera"] <- "MONTANE CORDILLERA"
+levels(dataFF2$ecozone)[levels(dataFF2$ecozone) == "Pacific Maritime"] <- "PACIFIC MARITIME"
+levels(dataFF2$ecozone)[levels(dataFF2$ecozone) == "Taiga Cordillera"] <- "TAIGA CORDILLERA"
+levels(dataFF2$ecozone)[levels(dataFF2$ecozone) == "Taiga Plain"] <- "TAIGA PLAIN"
+levels(dataFF2$ecozone)[levels(dataFF2$ecozone) == "Taiga Shield"] <- "TAIGA SHIELD"
+levels(dataFF2$ecozone)[levels(dataFF2$ecozone) == "MixedWood Plain"] <- "MIXEDWOOD PLAIN"
 summary(dataFF2$ecozone)
-dataFF3<-dataFF2[dataFF2$ecozone == "ATLANTIC MARITIME" | dataFF2$ecozone == "BOREAL CORDILLERA"
-                 | dataFF2$ecozone == "BOREAL PLAIN"| dataFF2$ecozone == "BOREAL SHIELD"
-                 | dataFF2$ecozone == "HUDSON PLAIN"| dataFF2$ecozone == "MONTANE CORDILLERA"
-                 | dataFF2$ecozone == "PACIFIC MARITIME"| dataFF2$ecozone == "TAIGA CORDILLERA"
-                 | dataFF2$ecozone == "TAIGA PLAIN"| dataFF2$ecozone == "TAIGA SHIELD"
-                 | dataFF2$ecozone == "MIXEDWOOD PLAIN",]
+dataFF3 <- dataFF2[grepl(paste("ATLANTIC MARITIME", "BOREAL CORDILLERA", "BOREAL PLAIN", "BOREAL SHIELD",
+                               "HUDSON PLAIN", "MONTANE CORDILLERA", "PACIFIC MARITIME", "TAIGA CORDILLERA",
+                               "TAIGA PLAIN", "TAIGA SHIELD", "MIXEDWOOD PLAIN", sep = "|"), dataFF2$ecozone), ]
 
 summary(dataFF3$ecozone)
 range(dataFF3$PPT_sm)
@@ -171,56 +172,52 @@ range(dataFF3$Tave_sm)
 range(dataFF3$DD5)
 range(dataFF3$TSLF)
 range(dataFF3$total_BA)
-dataFF3<-subset(dataFF3,TSLF>0&PPT_sm>=0&LCC>0)
-dataFF3$LCC<-as.factor(as.character(dataFF3$LCC))
+dataFF3 <- subset(dataFF3, TSLF > 0 & PPT_sm >= 0 & LCC > 0)
+dataFF3$LCC <- as.factor(as.character(dataFF3$LCC))
 str(dataFF3)
 summary(dataFF3$LCC)
 
-dataFF3$site_ID<-as.factor((dataFF3$site_ID))
-dataFF3$PPT_sm<-as.integer((dataFF3$PPT_sm))
-dataFF3$DD5<-as.integer((dataFF3$DD5))
+dataFF3$site_ID <- as.factor((dataFF3$site_ID))
+dataFF3$PPT_sm <- as.integer((dataFF3$PPT_sm))
+dataFF3$DD5 <- as.integer((dataFF3$DD5))
 
 colnames(dataSyn2)
 colnames(dataFF3)
 
-plot2<-rbind(dataSyn2,dataFF3)
-plot2<-na.omit(plot2[,-3])
+plot2 <- rbind(dataSyn2, dataFF3)
+plot2 <- na.omit(plot2[, -3])
 nrow(plot2)
 summary(plot2$ecozone)
 summary(plot2$LCC)
 summary(droplevels(plot2$ecozone))
 colnames(plot2)
 range(plot2$TSLF)
-plot2<-subset(plot2,TSLF<400)
+plot2 <- subset(plot2, TSLF < 400)
 summary(plot2$ecozone)
-levels(plot2$ecozone)[levels(plot2$ecozone)=="TAIGA SHIELD EAST"] <- "TAIGA SHIELD"
-levels(plot2$ecozone)[levels(plot2$ecozone)=="TAIGA SHIELD WEST"] <- "TAIGA SHIELD"
-plot3<-plot2
-#plot3<-subset(plot3,Type!='BNFF')# removing the datset of forest fires
-#plot3<-subset(plot2,Type!='BNFF'&total_BA>0)
-#plot3<-subset(plot3,total_BA>0)
-plot3<-subset(plot3,total_BA<80)# 
+levels(plot2$ecozone)[levels(plot2$ecozone) == "TAIGA SHIELD EAST"] <- "TAIGA SHIELD"
+levels(plot2$ecozone)[levels(plot2$ecozone) == "TAIGA SHIELD WEST"] <- "TAIGA SHIELD"
+plot3 <- plot2
+# plot3<-subset(plot3,Type!='BNFF')# removing the datset of forest fires
+# plot3<-subset(plot2,Type!='BNFF'&total_BA>0)
+# plot3<-subset(plot3,total_BA>0)
+plot3 <- subset(plot3, total_BA < 80) #
 summary(plot3$ecozone)
-plot3<-plot3[which(plot3$ecozone!="TAIGA CORDILLERA"),]
-plot3<-plot3[which(plot3$ecozone!="PACIFIC MARITIME"),]
-plot3<-plot3[which(plot3$ecozone!="MIXEDWOOD PLAIN"),]
-plot3<-plot3[which(plot3$ecozone!="ATLANTIC MARITIME"),]
-plot3<-plot3[which(plot3$ecozone!="BOREAL CORDILLERA"),]
-plot3<-plot3[which(plot3$ecozone!="MONTANE CORDILLERA"),]
+plot3 <- plot3[which(!(plot3$ecozone %in% c("TAIGA CORDILLERA", "PACIFIC MARITIME", "MIXEDWOOD PLAIN",
+                                            "ATLANTIC MARITIME", "BOREAL CORDILLERA", "MONTANE CORDILLERA"))), ]
 
-plot3$LCC<-as.numeric(plot3$LCC)
-plot3<-plot3[which(plot3$LCC<15),]
-plot3$LCC<-as.factor(plot3$LCC)
+plot3$LCC <- as.numeric(plot3$LCC)
+plot3 <- plot3[which(plot3$LCC < 15), ]
+plot3$LCC <- as.factor(plot3$LCC)
 summary(plot3$LCC)
-levels(plot3$LCC)[levels(plot3$LCC)=="11"] <- "11_12_13"
-levels(plot3$LCC)[levels(plot3$LCC)=="12"] <- "11_12_13"
-levels(plot3$LCC)[levels(plot3$LCC)=="13"] <- "11_12_13"
-nrow(plot3[which(plot3$ecozone=='HUDSON PLAIN'),])
+levels(plot3$LCC)[grepl("11|12|13", levels(plot3$LCC))] <- "11_12_13"
+nrow(plot3[which(plot3$ecozone == "HUDSON PLAIN"), ])
 hist(plot3$TSLF)
 
 ## this project's CRS/projection to use for all spatial data
-targetCRS <- paste("+proj=lcc +lat_1=49 +lat_2=77 +lat_0=0 +lon_0=-95",
-                   "+x_0=0 +y_0=0 +units=m +no_defs +ellps=GRS80 +towgs84=0,0,0")
+targetCRS <- paste(
+  "+proj=lcc +lat_1=49 +lat_2=77 +lat_0=0 +lon_0=-95",
+  "+x_0=0 +y_0=0 +units=m +no_defs +ellps=GRS80 +towgs84=0,0,0"
+)
 
 studyArea_ROF <- prepInputs(
   url = "https://drive.google.com/file/d/1iOXXIkvY-YaR9BTG_SRd5R_iLstk99n0",
@@ -282,8 +279,10 @@ if (lowMemory) {
   ## from https://open.canada.ca/data/en/dataset/4e615eae-b90c-420b-adee-2ca35896caf6
   LCC <- Cache(
     prepInputs,
-    url = paste0("https://ftp.maps.canada.ca/pub/nrcan_rncan/Land-cover_Couverture-du-sol/",
-                 "canada-landcover_canada-couverture-du-sol/CanadaLandcover2015.zip"), ## TODO: use 2010?
+    url = paste0(
+      "https://ftp.maps.canada.ca/pub/nrcan_rncan/Land-cover_Couverture-du-sol/",
+      "canada-landcover_canada-couverture-du-sol/CanadaLandcover2015.zip"
+    ), ## TODO: use 2010?
     targetFile = "CAN_LC_2015_CAL.tif", alsoExtract = "similar",
     fun = "raster::raster",
     destinationPath = inputDir,
@@ -366,7 +365,7 @@ modage2 <- bam(
     s(Tave_sm, by = LCC) +
     s(longitude, latitude, bs = "gp", k = 100, m = 2) +
     s(Tave_sm) + s(ecozone, bs = "re"),
-  data = plot3, method = "fREML", family=nb(),drop.intercept = FALSE, discrete=TRUE
+  data = plot3, method = "fREML", family = nb(), drop.intercept = FALSE, discrete = TRUE
 )
 # need to do some tests, but the model has improved by including the dataset of forest fires larger than 1000 ha.
 AIC(modage2)
@@ -409,7 +408,7 @@ Fig1 <- ggplot(plot3, aes(y = TSLF, x = exp(predictAge))) +
   ggtitle("Plot age") +
   ylab("Observed (Years)") +
   xlab("Predicted (Years)") +
-  geom_smooth(method = lm, se = F, size = 1) +
+  geom_smooth(method = lm, se = FALSE, size = 1) +
   xlim(0, 300) +
   ylim(0, 300) +
   facet_wrap(~ecozone) +
@@ -421,7 +420,7 @@ plot4 <- plot3
 # PROBLEM, Altough the projection of the rasters since to be in lat and long, if I plot them I see that they are in UTM, I think.
 # That's why the extract is not working
 plot(predPrevAge)
-coordinates(plot4) <- ~ longitude + latitude 
+coordinates(plot4) <- ~ longitude + latitude
 rasValue0 <- raster::extract(predPrevAge, plot4)
 plot4 <- as.data.frame(cbind(plot4, rasValue0))
 colnames(plot4)[12] <- "PrevAge"
@@ -437,7 +436,7 @@ Fig2 <- ggplot(plot5, aes(y = TSLF, x = exp(predictAge))) +
   ggtitle("ROF region -NEW Age layer-") +
   ylab("Observed (Years)") +
   xlab("Predicted (Years)") +
-  geom_smooth(method = lm, se = F, size = 1) +
+  geom_smooth(method = lm, se = FALSE, size = 1) +
   xlim(0, 200) +
   ylim(0, 200) +
   facet_wrap(~ecozone) +
