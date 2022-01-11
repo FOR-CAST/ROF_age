@@ -72,7 +72,7 @@ f01 <- file.path(inputDir, "DatasetAgeNA.txt") #
 if (!file.exists(f01)) {
   drive_download(as_id("1Ig7pNz1eYk5zWTYYpeR5LLYvdGzbV8Mx"), path = f01)
 }
-plot2 <- read.table(f01, header = TRUE, sep = " ", fill = TRUE, dec = ".") ## TODO: fix error: more columns than column names
+plot2 <- read.table(f01, header = TRUE, sep = "\t", fill = TRUE, dec = ".") ## TODO: fix error: more columns than column names
 colnames(plot2)
 plot2$ecozone_combined <- as.factor(plot2$ecozone_combined)
 plot2$ecozone_combined <- factor(plot2$ecozone_combined, levels(plot2$ecozone_combined)[c(1, 2, 4, 6, 3, 5)])
