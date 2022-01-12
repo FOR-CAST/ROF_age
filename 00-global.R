@@ -503,7 +503,7 @@ r_obj <- raster(extent(LCC), resolution=c(300,300),crs(LCC))
 
 raster300m<- rasterize(x=DatasetAgeROF3[, 1:2], # lon-lat data
                        y=r_obj, # raster object
-                       field=DatasetAgeROF3[, 8], # vals to fill raster with
+                       field=DatasetAgeROF3[, 7], # vals to fill raster with
                        fun=mean) # aggregate function
 plot(raster300m)# new Age layer
 plot(predPrevAge)# previous Age layer
