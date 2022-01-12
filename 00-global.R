@@ -437,6 +437,19 @@ Fig2 <- ggplot(DatasetAge3, aes(y = TSLF, x = (predictAge))) +
   theme_bw()
 Fig2
 
+cor.test(DatasetAge3$PrevAge, DatasetAge3$TSLF) 
+Fig3 <- ggplot(DatasetAge3, aes(y = TSLF, x = PrevAge)) +
+  geom_point() +
+  ggtitle("ROF region -Previous Age layer-") +
+  ylab("Observed (Years)") +
+  xlab("Predicted (Years)") +
+  geom_smooth(method = lm, se = FALSE, size = 1) +
+  xlim(0, 200) +
+  ylim(0, 200) +
+  facet_wrap(~ecozone) +
+  #annotate("text", x = 20, y = 200, label = "r=0.46, p<0.001", hjust = 0, vjust = 0, fontface = 1, size = 4) +
+  theme_bw()
+Fig3
 ggarrange(Fig2, Fig3, labels = "AUTO")
 
 
