@@ -464,7 +464,7 @@ DatasetAgeROF2$ecozone <- as.factor(as.character(DatasetAgeROF2$ecozone))
 summary(DatasetAgeROF2$ecozone)
 levels(DatasetAgeROF2$ecozone)[levels(DatasetAgeROF2$ecozone) == "10"] <- "BOREAL SHIELD"
 levels(DatasetAgeROF2$ecozone)[levels(DatasetAgeROF2$ecozone) == "11"] <- "HUDSON PLAIN"
-DatasetAgeROF2<- subset(DatasetAgeROF2, !(ecozone %in% c("3")))
+#DatasetAgeROF2<- subset(DatasetAgeROF2, !(ecozone %in% c("3")))# SOUTHERN ARTIC, IF WE DON'T INCLUDE ECOZONE AS A PREDICTOR WE DON'T NEED TO RUN THIS LINE
 
 DatasetAgeROF2$LCC <- as.factor(as.character(DatasetAgeROF2$LCC))
 summary(DatasetAgeROF2$LCC)
