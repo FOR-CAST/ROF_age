@@ -333,59 +333,10 @@ predPrevAge <- Cache(
   rasterToMatch = LCC ## NOTE: don't use RTM here
 )
 
-## TODO: need ~125m pixels; for now, use lower resolution rasters (1 x 1 km)
-res(LCC)
-res(ba)
-res(Tave)
-
-compareRaster(LCC, ba, Tave, ecozone)
-
+## TODO: need ~125m pixels; for now, use lower resolution rasters (750 x 750 m)
 LCC_1km <- terra::aggregate(LCC, fact = 25, fun = modal, dissolve = FALSE) # 750 m resolution.
 res(LCC_1km)
 plot(LCC_1km)
-
-ecozone_1km <- terra::aggregate(ecozone, fact = 25, fun = modal) # 750 m resolution.
-res(ecozone_1km)
-
-if (lowMemory) {
-  
-
-  ba_1km<- Cache(
-    prepInputs,
-    url = "https://drive.google.com/file/d/18Dwq5UQaosKlF4D-QWDfgIfiWt70_c3n",
-    targetFile = "ba_1km.tif",
-    fun = "raster::raster", ## TODO: use terra
-    destinationPath = inputDir
-  )
-  
-Tave_1km<- Cache(
-  prepInputs,
-  url = "https:///drive.google.com/file/d/1XDse1r6TQ6aTei8jOFuybJNzWEo3JdM5/",
-  targetFile = "Tave_1km.tif",
-  fun = "raster::raster", ## TODO: use terra
-  destinationPath = inputDir
-)
-
-}else {
-
-  ba2 <- ba
-values(ba2) <- runif(ncell(ba2))
-ba_1km <- terra::aggregate(ba2, fact = 25, fun = mean, na.rm = TRUE) # 750 m resolution.
-res(ba_1km)
-f4 <- file.path(inputDir, "ba_1km.tif")
-#writeRaster(ba_1km, f4)
-#drive_put(f4, as_id("1DzbbVSYp0br-MIi1iI0EPMGGy4BRrjnk"))
-rm(ba2)
-
-Tave2 <- Tave
-values(Tave2) <- runif(ncell(Tave2))
-Tave_1km <- terra::aggregate(Tave2, fact = 25, fun = mean, na.rm = TRUE) # 750 m resolution.
-res(Tave_1km)
-f5 <- file.path(inputDir, "Tave_1km.tif")
-#writeRaster(Tave_1km, f5)
-#drive_put(f5, as_id("1DzbbVSYp0br-MIi1iI0EPMGGy4BRrjnk"))
-rm(Tave2)
-}
 
 ## the model
 ## NOTE: need too much RAM to run below with the parameter select=TRUE
