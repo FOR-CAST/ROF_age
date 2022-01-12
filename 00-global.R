@@ -333,8 +333,8 @@ predPrevAge <- Cache(
   rasterToMatch = LCC ## NOTE: don't use RTM here
 )
 
-## TODO: need ~125m pixels; for now, use lower resolution rasters (750 x 750 m)
-LCC_1km <- terra::aggregate(LCC, fact = 25, fun = modal, dissolve = FALSE) # 750 m resolution.
+## TODO: need ~125m pixels; for now, use lower resolution rasters (300 x 300 m)
+LCC_1km <- terra::aggregate(LCC, fact = 10, fun = modal, dissolve = FALSE) # 300 m resolution.
 res(LCC_1km)
 plot(LCC_1km)
 
@@ -363,7 +363,7 @@ modage2 <- bam(
     s(Tave_sm, by = LCC) +
     s(Tave_sm) + LCC+
     s(longitude, latitude, bs = "gp", k = 100, m = 2),
-    data = DatasetAge1, method = "fREML", drop.intercept = FALSE, discrete = TRUE
+  data = DatasetAge1, method = "fREML", drop.intercept = FALSE, discrete = TRUE
 )
 
 # need to do some more tests
@@ -441,7 +441,7 @@ ggarrange(Fig2, Fig3, labels = "AUTO")
 
 
 ###
-### 750 x 750 m 
+### 300 x 300 m # this is very slow but I can run it
 
 LCC_1kmpoints <- Cache(rasterToPoints, x = LCC_1km, progress = "text")
 
@@ -458,8 +458,8 @@ head(DatasetAgeROF)
 colnames(DatasetAgeROF)<- c("longitude", "latitude", "LCC","total_BA","Tave_sm","ecozone")
 DatasetAgeROF2 <- na.omit(DatasetAgeROF)
 str(DatasetAgeROF2)
-DatasetAgeROF2$year_BA <- 2015
-DatasetAgeROF2$year_BA<-as.integer(DatasetAgeROF2$year_BA)
+#DatasetAgeROF2$year_BA <- 2015
+#DatasetAgeROF2$year_BA<-as.integer(DatasetAgeROF2$year_BA)
 DatasetAgeROF2$ecozone <- as.factor(as.character(DatasetAgeROF2$ecozone))
 summary(DatasetAgeROF2$ecozone)
 levels(DatasetAgeROF2$ecozone)[levels(DatasetAgeROF2$ecozone) == "10"] <- "BOREAL SHIELD"
@@ -480,19 +480,21 @@ DatasetAgeROF2$predictAge <-round(DatasetAgeROF2$predictAge,0)
 head(DatasetAgeROF2$predictAge)
 DatasetAgeROF2$predictAge[!is.finite(DatasetAgeROF2$predictAge)] <- NA
 range(na.omit(DatasetAgeROF2$predictAge))
-DatasetAgeROF3 <- subset(DatasetAgeROF2,predictAge<300)
+hist((DatasetAgeROF2$predictAge))  
+DatasetAgeROF3 <- subset(DatasetAgeROF2,predictAge<200)
 hist((DatasetAgeROF3$predictAge))                         
 #cor.test(DatasetAgeROF2$PreviusStandAge, newdataset$predictstack)
 #hist((newdataset$PreviusStandAge))
 
-r_obj <- raster(extent(LCC), resolution=c(750,750),crs(LCC))
+r_obj <- raster(extent(LCC), resolution=c(300,300),crs(LCC))
 
-raster750m<- rasterize(x=DatasetAgeROF3[, 1:2], # lon-lat data
+raster300m<- rasterize(x=DatasetAgeROF3[, 1:2], # lon-lat data
                        y=r_obj, # raster object
                        field=DatasetAgeROF3[, 8], # vals to fill raster with
                        fun=mean) # aggregate function
-plot(raster750m)
-plot(predPrevAge)
+plot(raster300m)# new Age layer
+plot(predPrevAge)# previous Age layer
+
 #f <- file.path(outputDir, "raster750m.tif")
 #qs::qsave(raster750m, f)
 #drive_put(f, as_id("1ZM8i8VZ8BcsxEdxWPE2S-AMO0JvQ9DRI"), name = basename(f))
