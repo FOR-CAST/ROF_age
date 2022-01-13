@@ -478,7 +478,7 @@ DatasetAgeROF2<- subset(DatasetAgeROF2, !(ecozone %in% c("3")))# SOUTHERN ARTIC,
 
 DatasetAgeROF2$LCC <- as.factor(as.character(DatasetAgeROF2$LCC))
 summary(DatasetAgeROF2$LCC)
-DatasetAgeROF2 <- subset(DatasetAgeROF2, !(LCC %in% c("0","3", "4", "7", "9","13", "15", "16", "17", "18")))
+DatasetAgeROF2 <- subset(DatasetAgeROF2, !(LCC %in% c("0","3", "4", "7", "9","15", "16", "17", "18")))
 summary(DatasetAgeROF2$LCC)
 DatasetAgeROF2<-subset(DatasetAgeROF2,Tave_sm>0)
 DatasetAgeROF2<-subset(DatasetAgeROF2,total_BA>0)
