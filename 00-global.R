@@ -3,7 +3,7 @@ if (!exists("pkgDir")) {
     version$major, ".",
     strsplit(version$minor, "[.]")[[1]][1]
   ))
-  
+
   if (!dir.exists(pkgDir)) {
     dir.create(pkgDir, recursive = TRUE)
   }
@@ -31,7 +31,7 @@ Require(pkgs2) ## install if needed, and load/attach
 sptlPkgs <- c("rgdal", "sf", "terra", "raster", "rgeos") ## TODO: remove raster
 if (!all(sptlPkgs %in% rownames(installed.packages()))) {
   install.packages(sptlPkgs, repos = "https://cran.rstudio.com")
-  
+
   sf::sf_extSoftVersion() ## want GEOS 3.9.0, GDAL 3.2.1, PROJ 7.2.1 or higher
 }
 Require(c(sptlPkgs, "fasterize"))
@@ -229,7 +229,7 @@ if (lowMemory) {
     fun = "raster::raster", ## TODO: use terra
     destinationPath = inputDir
   )
-  
+
   ## NOTE: reprojecting rasters in memory requires too much RAM to not use GDAL (see options above)
   ba <- Cache(
     prepInputs,
@@ -239,7 +239,7 @@ if (lowMemory) {
     destinationPath = inputDir,
     rasterToMatch = LCC
   )
-  
+
   Tave <- Cache(
     prepInputs,
     url = "https://drive.google.com/file/d/1HT0swKK22D59n47RbbBJAyC1qGlAGb-E/",
@@ -248,7 +248,7 @@ if (lowMemory) {
     destinationPath = inputDir,
     rasterToMatch = LCC
   )
-  
+
   ecozone <- Cache(
     prepInputs,
     url = "https://drive.google.com/file/d/1IwRayjkjOGFjIUDfCYyPsKmgx9MRGqKA/",
@@ -259,7 +259,7 @@ if (lowMemory) {
   )
 } else {
   ## use national layers
-  
+
   ## from https://open.canada.ca/data/en/dataset/4e615eae-b90c-420b-adee-2ca35896caf6
   LCC <- Cache(
     prepInputs,
@@ -273,7 +273,7 @@ if (lowMemory) {
     studyArea = studyArea_ROF,
     targetCRS = targetCRS
   )
-  
+
   ## from https://open.canada.ca/data/en/dataset/4c0d9755-9347-42f2-bb1b-f4d2ff673254
   ba <- Cache(
     prepInputs,
@@ -284,7 +284,7 @@ if (lowMemory) {
     destinationPath = inputDir,
     rasterToMatch = LCC
   )
-  
+
   Tave <- Cache(
     prepInputs,
     url = "https://s3-us-west-2.amazonaws.com/www.cacpd.org/CMIP6/normals/Normal_1981_2010_bioclim.zip",
@@ -293,7 +293,7 @@ if (lowMemory) {
     destinationPath = inputDir,
     rasterToMatch = LCC
   )
-  
+
   ## TODO: use finer-resolution climate data from ClimateNA desktop app:
   # ft <- "Normal_1981_2010S/Tave_sm.asc"
   # fz <- file.path(inputDir, "Normal_1981_2010S.zip")
@@ -310,7 +310,7 @@ if (lowMemory) {
   #   destinationPath = inputDir,
   #   rasterToMatch = LCC
   # )
-  
+
   ecozone_shp <- prepInputs(
     url = "https://sis.agr.gc.ca/cansis/nsdb/ecostrat/zone/ecozone_shp.zip",
     targetFile = "ecozones.shp",
@@ -319,7 +319,7 @@ if (lowMemory) {
     studyArea = studyArea_ROF,
     targetCRS = targetCRS
   )
-  
+
   ecozone_shp$ZONE_NAME <- as.factor(ecozone_shp$ZONE_NAME)
   ecozone <- fasterize::fasterize(ecozone_shp, ba, field = "ZONE_NAME", fun = "sum")
 }
@@ -425,7 +425,7 @@ DatasetAge3 <- na.omit(DatasetAge2)
 DatasetAge3$predictAge <- exp(predict(modage2, DatasetAge3))
 
 # Predicted vs Observed for the ROF region--> new Age layer
-cor.test(DatasetAge3$predictAge, DatasetAge3$TSLF) ## 
+cor.test(DatasetAge3$predictAge, DatasetAge3$TSLF) ##
 Fig2 <- ggplot(DatasetAge3, aes(y = TSLF, x = (predictAge))) +
   geom_point() +
   ggtitle("ROF region -NEW Age layer-") +
@@ -439,7 +439,7 @@ Fig2 <- ggplot(DatasetAge3, aes(y = TSLF, x = (predictAge))) +
   theme_bw()
 Fig2
 
-cor.test(DatasetAge3$PrevAge, DatasetAge3$TSLF) 
+cor.test(DatasetAge3$PrevAge, DatasetAge3$TSLF)
 Fig3 <- ggplot(DatasetAge3, aes(y = TSLF, x = PrevAge)) +
   geom_point() +
   ggtitle("ROF region -Previous Age layer-") +
@@ -490,9 +490,9 @@ DatasetAgeROF2$predictAge <-round(DatasetAgeROF2$predictAge,0)
 head(DatasetAgeROF2$predictAge)
 DatasetAgeROF2$predictAge[!is.finite(DatasetAgeROF2$predictAge)] <- NA
 range(na.omit(DatasetAgeROF2$predictAge))
-hist((DatasetAgeROF2$predictAge))  
+hist((DatasetAgeROF2$predictAge))
 DatasetAgeROF3 <- subset(DatasetAgeROF2,predictAge<200)
-hist((DatasetAgeROF3$predictAge))                         
+hist((DatasetAgeROF3$predictAge))
 #cor.test(DatasetAgeROF2$PreviusStandAge, newdataset$predictstack)
 #hist((newdataset$PreviusStandAge))
 
