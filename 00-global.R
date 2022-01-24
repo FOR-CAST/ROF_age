@@ -39,7 +39,11 @@ Require(c(sptlPkgs, "fasterize"))
 Require("PredictiveEcology/reproducible@development")
 
 ## NOTE: many GIS etc. ops require large amounts of memory (>80 GB)
-lowMemory <- if (grepl("for-cast.ca", Sys.info()["nodename"])) FALSE else TRUE
+lowMemory <- if (grepl("picea|pseudotsuga", Sys.info()[["nodename"]])) FALSE else TRUE
+targetCRS <- paste(
+  "+proj=lcc +lat_1=49 +lat_2=77 +lat_0=0 +lon_0=-95",
+  "+x_0=0 +y_0=0 +units=m +no_defs +ellps=GRS80 +towgs84=0,0,0"
+)
 targetRes <- 300 ## TODO: change this to 125 m to match simulation layers
 
 ## project paths
@@ -70,12 +74,12 @@ opts <- options(
 ##   https://drive.google.com/drive/folders/1ZM8i8VZ8BcsxEdxWPE2S-AMO0JvQ9DRI
 
 ## input data
-
+## TODO: these tabular data use unprojected spatial coordinates; need to reproject for use with maps in lowMemory mode
 f01 <- file.path(inputDir, "DatasetAgeNA.txt")
 if (!file.exists(f01)) {
   drive_download(as_id("1Ig7pNz1eYk5zWTYYpeR5LLYvdGzbV8Mx"), path = f01)
 }
-DatasetAge0 <- read.table(f01, header = TRUE, sep = "\t", fill = TRUE, dec = ".") ## TODO: fix error: more columns than column names
+DatasetAge0 <- read.table(f01, header = TRUE, sep = "\t", fill = TRUE, dec = ".")
 colnames(DatasetAge0)
 DatasetAge0$ecozone_combined <- as.factor(DatasetAge0$ecozone_combined)
 DatasetAge0$ecozone_combined <- factor(DatasetAge0$ecozone_combined, levels(DatasetAge0$ecozone_combined)[c(1, 2, 4, 6, 3, 5)])
@@ -172,12 +176,12 @@ levels(DatasetAge1$LCC)[grepl("11|12|13", levels(DatasetAge1$LCC))] <- "11_12_13
 DatasetAge1$Type <- as.factor(DatasetAge1$Type)
 summary(DatasetAge1$Type)
 
-## this project's CRS/projection to use for all spatial data
-targetCRS <- paste(
-  "+proj=lcc +lat_1=49 +lat_2=77 +lat_0=0 +lon_0=-95",
-  "+x_0=0 +y_0=0 +units=m +no_defs +ellps=GRS80 +towgs84=0,0,0"
-)
+## TODO: confirm whether reprojection necessary when lowMemory (i.e., getting pre-built rasters from gdrive)
+coordinates(DatasetAge1) <- c("longitude", "latitude")
+DatasetAge1_proj <- spTransform(DatasetAge1, targetCRS)
+DatasetAge1 <- as.data.frame(DatasetAge1_proj)
 
+## spatial data
 studyArea_ROF <- prepInputs(
   url = "https://drive.google.com/file/d/1iOXXIkvY-YaR9BTG_SRd5R_iLstk99n0",
   targetCRS = targetCRS,
@@ -297,7 +301,7 @@ predPrevAge <- Cache(
   targetFile = "standAgeMap_it_1_ts_2011_ProROF.tif",
   fun = "raster::raster",
   destinationPath = inputDir,
-  rasterToMatch = LCC ## NOTE: don't use RTM here
+  rasterToMatch = LCC
 )
 
 ## use different resolution
@@ -308,10 +312,6 @@ plot(LCC_sim)
 
 ## the model
 ## NOTE: need too much RAM to run below with the parameter select=TRUE
-coordinates(DatasetAge1) <- c("longitude", "latitude")
-DatasetAge1_trnsfrmd <- spTransform(DatasetAge1, targetCRS)
-DatasetAge1 <- as.data.frame(DatasetAge1_trnsfrmd)
-
 modage2 <- bam(TSLF ~ s(total_BA) +
                  s(Tave_sm) +
                  LCC +
@@ -374,8 +374,8 @@ Fig1 <- ggplot(DatasetAge1, aes(y = TSLF, x = (predictAge))) +
 Fig1
 
 ## ROF region
-rasValue0 <- raster::extract(predPrevAge, DatasetAge1_trnsfrmd)
-DatasetAge2 <- as.data.frame(cbind(DatasetAge1_trnsfrmd, rasValue0))
+rasValue0 <- raster::extract(predPrevAge, DatasetAge1_proj)
+DatasetAge2 <- as.data.frame(cbind(DatasetAge1_proj, rasValue0))
 colnames(DatasetAge2)[11] <- "PrevAge"
 DatasetAge3 <- na.omit(DatasetAge2)
 DatasetAge3$predictAge <- exp(predict(modage2, DatasetAge3))
@@ -399,7 +399,8 @@ Fig2
 
 cor.test(DatasetAge3[which(DatasetAge3$TSLF > 30 & DatasetAge3$PrevAge > 30), ]$PrevAge,
          DatasetAge3[which(DatasetAge3$TSLF > 30 & DatasetAge3$PrevAge > 30), ]$TSLF)
-Fig3 <- ggplot(DatasetAge3[which(DatasetAge3$TSLF > 30 & DatasetAge3$PrevAge > 30), ], aes(y = TSLF, x = PrevAge)) +
+Fig3 <- ggplot(DatasetAge3[which(DatasetAge3$TSLF > 30 & DatasetAge3$PrevAge > 30), ],
+               aes(y = TSLF, x = PrevAge)) +
   geom_point() +
   ggtitle("ROF region -Previous Age layer-") +
   ylab("Observed (Years)") +
