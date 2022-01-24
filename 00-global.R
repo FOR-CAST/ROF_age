@@ -1,18 +1,35 @@
-if (!exists("pkgDir")) {
-  pkgDir <- file.path("packages", version$platform, paste0(
-    version$major, ".",
-    strsplit(version$minor, "[.]")[[1]][1]
-  ))
+if (file.exists(".Renviron")) readRenviron(".Renviron")
 
-  if (!dir.exists(pkgDir)) {
-    dir.create(pkgDir, recursive = TRUE)
-  }
-  .libPaths(pkgDir)
+pkgDir <- Sys.getenv("PRJ_PKG_DIR")
+if (!nzchar(pkgDir)) {
+  pkgDir <- "packages" ## default: use subdir within project directory
+}
+pkgDir <- normalizePath(
+  file.path(pkgDir, version$platform, paste0(version$major, ".", strsplit(version$minor, "[.]")[[1]][1])),
+  winslash = "/",
+  mustWork = FALSE
+)
+
+if (!dir.exists(pkgDir)) {
+  dir.create(pkgDir, recursive = TRUE)
 }
 
-if (!suppressWarnings(require("Require"))) {
+.libPaths(pkgDir)
+message("Using libPaths:\n", paste(.libPaths(), collapse = "\n"))
+
+if (!require("Require", quietly = TRUE)) {
   install.packages("Require")
   library(Require)
+}
+
+Require("PredictiveEcology/SpaDES.install@development")
+installSpatialPackages()
+
+if (FALSE) {
+  .spatialPkgs <- c("lwgeom", "rgdal", "rgeos", "sf", "sp", "raster", "terra")
+  installSpatialPackages()
+  #install.packages(c("raster", "terra"), repos = "https://rspatial.r-universe.dev")
+  sf::sf_extSoftVersion() ## want GEOS 3.9.0, GDAL 3.2.1, PROJ 7.2.1
 }
 
 pkgs1 <- c( ## TODO: remove unused packages
@@ -24,17 +41,9 @@ pkgs1 <- c( ## TODO: remove unused packages
 Require(pkgs1, require = FALSE) ## don't load/attach yet, just ensure these get installed
 
 pkgs2 <- c(
-  "googledrive", "tidyr"
+  "fasterize", "googledrive", "tidyr"
 )
 Require(pkgs2) ## install if needed, and load/attach
-
-sptlPkgs <- c("rgdal", "sf", "terra", "raster", "rgeos") ## TODO: remove raster
-if (!all(sptlPkgs %in% rownames(installed.packages()))) {
-  install.packages(sptlPkgs, repos = "https://cran.rstudio.com")
-
-  sf::sf_extSoftVersion() ## want GEOS 3.9.0, GDAL 3.2.1, PROJ 7.2.1 or higher
-}
-Require(c(sptlPkgs, "fasterize"))
 
 Require("PredictiveEcology/reproducible@development")
 
@@ -287,6 +296,7 @@ if (lowMemory) {
   ecozone_shp <- prepInputs(
     url = "https://sis.agr.gc.ca/cansis/nsdb/ecostrat/zone/ecozone_shp.zip",
     targetFile = "ecozones.shp",
+    alsoExtract = "similar",
     fun = "sf::st_read",
     destinationPath = inputDir,
     studyArea = studyArea_ROF,
