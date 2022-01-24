@@ -21,7 +21,7 @@ pkgs1 <- c( ## TODO: remove unused packages
   "dplyr", "readr", "tidyverse", ## TODO: remove these in favour of data.table
   "performance", "qs", "RCurl", "splines", "styler"
 )
-Require(pkgs1, Require = FALSE) ## don't load/attach yet, just ensure these get installed
+Require(pkgs1, require = FALSE) ## don't load/attach yet, just ensure these get installed
 
 pkgs2 <- c(
   "googledrive", "tidyr"
