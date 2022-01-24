@@ -178,8 +178,10 @@ summary(DatasetAge1$Type)
 
 ## TODO: confirm whether reprojection necessary when lowMemory (i.e., getting pre-built rasters from gdrive)
 coordinates(DatasetAge1) <- c("longitude", "latitude")
-DatasetAge1_proj <- spTransform(DatasetAge1, targetCRS)
-DatasetAge1 <- as.data.frame(DatasetAge1_proj)
+DatasetAge1 <- st_as_sf(DatasetAge1)
+st_crs(DatasetAge1) <- "epsg:4326"
+DatasetAge1_proj <- st_transform(DatasetAge1, targetCRS)
+DatasetAge1 <- as.data.frame(DatasetAge1_proj) ## convert back to df
 
 ## spatial data
 studyArea_ROF <- prepInputs(
