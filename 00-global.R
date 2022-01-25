@@ -264,8 +264,7 @@ if (lowMemory) {
     x = terra::rast(LCC),
     y = targetProj ## targetCRS not found in GDAL db
   )
-  LCC <- as(LCC, "RasterLayer")
-  compareCRS(LCC, targetProj, verbose = TRUE)  ## TODO: why not matching crs?
+  crs(LCC, proj = TRUE)  ## compare with `targetProj` : OK
 
   ## from https://open.canada.ca/data/en/dataset/4c0d9755-9347-42f2-bb1b-f4d2ff673254
   ba <- Cache(
@@ -331,8 +330,7 @@ predPrevAge <- Cache(
   x = terra::rast(predPrevAge),
   y = targetProj ## targetCRS not found in GDAL db
 )
-predPrevAge <- as(predPrevAge, "RasterLayer")
-compareCRS(predPrevAge, targetProj, verbose = TRUE) ## TODO: why not matching crs?
+crs(predPrevAge, proj = TRUE) ## compare with `targetProj` : OK
 
 ## use different resolution
 LCC_sim <- terra::aggregate(LCC, fact = targetRes / 30, fun = modal, dissolve = FALSE)
