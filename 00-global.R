@@ -259,11 +259,12 @@ if (lowMemory) {
     useStudyAreaCRS = TRUE
   )
   ## TODO: remove following workaround to fix projection of LCC:
-  LCC <- Cache(
+  LCC2 <- Cache(
     terra::project,
     x = terra::rast(LCC),
     y = targetProj ## targetCRS not found in GDAL db
   )
+  LCC <- raster(LCC2)
   crs(LCC, proj = TRUE)  ## compare with `targetProj` : OK
 
   ## from https://open.canada.ca/data/en/dataset/4c0d9755-9347-42f2-bb1b-f4d2ff673254
@@ -325,11 +326,12 @@ predPrevAge <- Cache(
   destinationPath = inputDir
 )
 ## TODO: remove following workaround to fix projection of LCC:
-predPrevAge <- Cache(
+predPrevAge2 <- Cache(
   terra::project,
   x = terra::rast(predPrevAge),
   y = targetProj ## targetCRS not found in GDAL db
 )
+predPrevAge <- raster(predPrevAge2)
 crs(predPrevAge, proj = TRUE) ## compare with `targetProj` : OK
 
 ## use different resolution
