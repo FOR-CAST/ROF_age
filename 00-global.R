@@ -412,8 +412,7 @@ Fig1 <- ggplot(DatasetAge1_proj, aes(y = TSLF, x = (predictAge))) +
 ggsave(file.path(figsDir, "Fig1.png"), Fig1)
 
 ## ROF region
-compareCRS(predPrevAge, DatasetAge1_proj, verbose = TRUE)
-rasValue0 <- raster::extract(predPrevAge, DatasetAge1_proj)
+rasValue0 <- raster::extract(predPrevAge, DatasetAge1_proj[, c("coords.x1", "coords.x2")]) ## TODO: none of the points are in the raster's spatial extent!
 DatasetAge2 <- as.data.frame(cbind(DatasetAge1_proj, rasValue0))
 colnames(DatasetAge2)[11] <- "PrevAge"
 DatasetAge3 <- na.omit(DatasetAge2)
