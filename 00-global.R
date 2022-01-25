@@ -48,11 +48,12 @@ Require(pkgs2) ## install if needed, and load/attach
 Require("PredictiveEcology/reproducible@development")
 
 ## NOTE: many GIS etc. ops require large amounts of memory (>80 GB)
-lowMemory <- if (grepl("picea|pseudotsuga", Sys.info()[["nodename"]])) FALSE else TRUE
-targetCRS <- paste(
+lowMemory <- if (grepl("for-cast[.]ca", Sys.info()[["nodename"]])) FALSE else TRUE
+targetProj <- paste(
   "+proj=lcc +lat_1=49 +lat_2=77 +lat_0=0 +lon_0=-95",
   "+x_0=0 +y_0=0 +units=m +no_defs +ellps=GRS80 +towgs84=0,0,0"
 )
+targetCRS <- "EPSG:42304" ## equivalent crs to targetProj; see https://epsg.io/42304
 targetRes <- 300 ## TODO: change this to 125 m to match simulation layers
 
 ## project paths
@@ -196,14 +197,14 @@ rm(DatasetAge1_sf, DatasetAge1_sp)
 ## spatial data
 studyArea_ROF <- prepInputs(
   url = "https://drive.google.com/file/d/1iOXXIkvY-YaR9BTG_SRd5R_iLstk99n0",
-  targetCRS = targetCRS,
+  targetCRS = targetProj,
   targetFile = "ROF_RA_def_50km_buff.shp", alsoExtract = "similar",
   fun = "sf::st_read",
   destinationPath = inputDir,
   filename2 = "ROF_RA_def_50km_buff",
   overwrite = TRUE
 )
-compareCRS(studyArea_ROF, targetCRS)
+compareCRS(studyArea_ROF, targetProj)
 
 if (lowMemory) {
   ## use rasters pre-cropped to ROF
@@ -255,8 +256,16 @@ if (lowMemory) {
     fun = "raster::raster",
     destinationPath = inputDir,
     studyArea = studyArea_ROF,
-    targetCRS = targetCRS
+    useStudyAreaCRS = TRUE
   )
+  ## TODO: remove following workaround to fix projection of LCC:
+  LCC <- Cache(
+    terra::project,
+    x = terra::rast(LCC),
+    y = targetProj ## targetCRS not found in GDAL db
+  )
+  LCC <- as(LCC, "RasterLayer")
+  compareCRS(LCC, targetProj, verbose = TRUE)  ## TODO: why not matching crs?
 
   ## from https://open.canada.ca/data/en/dataset/4c0d9755-9347-42f2-bb1b-f4d2ff673254
   ba <- Cache(
@@ -302,7 +311,7 @@ if (lowMemory) {
     fun = "sf::st_read",
     destinationPath = inputDir,
     studyArea = studyArea_ROF,
-    targetCRS = targetCRS
+    targetCRS = targetProj
   )
 
   ecozone_shp$ZONE_NAME <- as.factor(ecozone_shp$ZONE_NAME)
@@ -314,12 +323,18 @@ predPrevAge <- Cache(
   url = "https://drive.google.com/file/d/14zxLiW_XVoOeLILi9bqpdTtDzOw4JyuP/",
   targetFile = "standAgeMap_it_1_ts_2011_ProROF.tif",
   fun = "raster::raster",
-  destinationPath = inputDir,
-  rasterToMatch = LCC
+  destinationPath = inputDir
 )
+## TODO: remove following workaround to fix projection of LCC:
+predPrevAge <- Cache(
+  terra::project,
+  x = terra::rast(predPrevAge),
+  y = targetProj ## targetCRS not found in GDAL db
+)
+predPrevAge <- as(predPrevAge, "RasterLayer")
+compareCRS(predPrevAge, targetProj, verbose = TRUE) ## TODO: why not matching crs?
 
 ## use different resolution
-
 LCC_sim <- terra::aggregate(LCC, fact = targetRes / 30, fun = modal, dissolve = FALSE)
 res(LCC_sim)
 plot(LCC_sim)
