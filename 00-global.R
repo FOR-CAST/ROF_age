@@ -23,25 +23,25 @@ if (!require("Require", quietly = TRUE)) {
 }
 
 Require("PredictiveEcology/SpaDES.install@development")
-installSpatialPackages()
 
-if (FALSE) {
-  .spatialPkgs <- c("lwgeom", "rgdal", "rgeos", "sf", "sp", "raster", "terra")
-  installSpatialPackages()
+.spatialPkgs <- c("lwgeom", "rgdal", "rgeos", "sf", "sp", "raster", "terra")
+
+if (!all(.spatialPkgs %in% rownames(installed.packages()))) {
+  installSpatialPackages(.spatialPkgs)
   #install.packages(c("raster", "terra"), repos = "https://rspatial.r-universe.dev")
   sf::sf_extSoftVersion() ## want GEOS 3.9.0, GDAL 3.2.1, PROJ 7.2.1
 }
 
 pkgs1 <- c( ## TODO: remove unused packages
-  "data.table", "DHARMa", "effects", "foreign", "gamlss", "ggplot2", "ggpubr",
-  "lme4", "lmerTest", "mgcv",
+  "data.table", "DHARMa", "effects", "foreign", "gamlss", "ggpubr",
+  "lme4", "lmerTest",
   "dplyr", "readr", "tidyverse", ## TODO: remove these in favour of data.table
   "performance", "qs", "RCurl", "splines", "styler"
 )
 Require(pkgs1, require = FALSE) ## don't load/attach yet, just ensure these get installed
 
 pkgs2 <- c(
-  "fasterize", "googledrive", "tidyr"
+  .spatialPkgs, "fasterize", "ggplot2", "googledrive", "mgcv", "tidyr"
 )
 Require(pkgs2) ## install if needed, and load/attach
 
@@ -61,7 +61,7 @@ inputDir <- checkPath("inputs", create = TRUE)
 outputDir <- checkPath("outputs", create = TRUE)
 scratchDir <- checkPath("scratch", create = TRUE)
 
-figsDir <- checkPath("outputs/figures", create = TRUE)
+figsDir <- checkPath(file.path(outputDir, "figures"), create = TRUE)
 
 ## project options
 raster::rasterOptions(default = TRUE)
@@ -83,7 +83,6 @@ opts <- options(
 ##   https://drive.google.com/drive/folders/1ZM8i8VZ8BcsxEdxWPE2S-AMO0JvQ9DRI
 
 ## input data
-## TODO: these tabular data use unprojected spatial coordinates; need to reproject for use with maps in lowMemory mode
 f01 <- file.path(inputDir, "DatasetAgeNA.txt")
 if (!file.exists(f01)) {
   drive_download(as_id("1Ig7pNz1eYk5zWTYYpeR5LLYvdGzbV8Mx"), path = f01)
@@ -185,12 +184,14 @@ levels(DatasetAge1$LCC)[grepl("11|12|13", levels(DatasetAge1$LCC))] <- "11_12_13
 DatasetAge1$Type <- as.factor(DatasetAge1$Type)
 summary(DatasetAge1$Type)
 
-## TODO: confirm whether reprojection necessary when lowMemory (i.e., getting pre-built rasters from gdrive)
-coordinates(DatasetAge1) <- c("longitude", "latitude")
-DatasetAge1 <- st_as_sf(DatasetAge1)
-st_crs(DatasetAge1) <- "epsg:4326"
-DatasetAge1_proj <- st_transform(DatasetAge1, targetCRS)
-DatasetAge1 <- as.data.frame(DatasetAge1_proj) ## convert back to df
+DatasetAge1_sp <- DatasetAge1
+coordinates(DatasetAge1_sp) <- c("longitude", "latitude")
+DatasetAge1_sf <- st_as_sf(DatasetAge1_sp)
+st_crs(DatasetAge1_sf) <- "epsg:4326"
+DatasetAge1_sf <- st_transform(DatasetAge1_sf, targetCRS)
+DatasetAge1_sp <- as_Spatial(DatasetAge1_sf)
+DatasetAge1_proj <- as.data.frame(DatasetAge1_sp) ## coords.x1 ~= longitude; coords.x2 ~= latitude ## TODO: confirm
+rm(DatasetAge1_sf, DatasetAge1_sp)
 
 ## spatial data
 studyArea_ROF <- prepInputs(
@@ -202,6 +203,7 @@ studyArea_ROF <- prepInputs(
   filename2 = "ROF_RA_def_50km_buff",
   overwrite = TRUE
 )
+compareCRS(studyArea_ROF, targetCRS)
 
 if (lowMemory) {
   ## use rasters pre-cropped to ROF
@@ -334,8 +336,8 @@ modage2 <- bam(TSLF ~ s(total_BA) +
                  # s(total_BA, by = ecozone) +
                  # s(Tave_sm, by = LCC) +
                  # s(Tave_sm, by = ecozone)+
-                 s(longitude, latitude, bs = "gp", k = 100, m = 2),
-               data = DatasetAge1, method = "fREML", family = nb(), drop.intercept = FALSE, discrete = TRUE
+                 s(coords.x1, coords.x2, bs = "gp", k = 100, m = 2),
+               data = DatasetAge1_proj, method = "fREML", family = nb(), drop.intercept = FALSE, discrete = TRUE
 )
 AIC(modage2)
 summary(modage2)
@@ -348,9 +350,9 @@ dev.off()
 
 ## TODO: remove duplicate code below / cleanup
 
-DatasetAge1$predictAge <- exp(predict(modage2, DatasetAge1))
+DatasetAge1_proj$predictAge <- exp(predict(modage2, DatasetAge1_proj))
 
-FigHist <- ggplot(DatasetAge1, aes(x = TSLF)) +
+FigHist1 <- ggplot(DatasetAge1_proj, aes(x = TSLF)) +
   xlim(0, 300) +
   geom_histogram() +
   ylab("Observed (Years)") +
@@ -359,7 +361,7 @@ FigHist <- ggplot(DatasetAge1, aes(x = TSLF)) +
   ggtitle("Plot age -Input data-") +
   theme_bw()
 
-FigHist2 <- ggplot(DatasetAge1, aes(x = predictAge)) +
+FigHist2 <- ggplot(DatasetAge1_proj, aes(x = predictAge)) +
   xlim(0, 300) +
   geom_histogram(fill = "brown4") +
   ylab("Observed (Years)") +
@@ -368,12 +370,12 @@ FigHist2 <- ggplot(DatasetAge1, aes(x = predictAge)) +
   ggtitle("Plot age -Predicted values-") +
   theme_bw()
 
-ggarrange(FigHist, FigHist2)
-ggsave(file.path(figsDir, "plot_age_pred_vs_obs_hists.png"))
+FigHist <- ggarrange(FigHist1, FigHist2)
+ggsave(file.path(figsDir, "plot_age_pred_vs_obs_hists.png"), FigHist)
 
 # Predicted vs Observed all ecozones included--> new Age layer
-cor.test((DatasetAge1$predictAge), DatasetAge1$TSLF)
-Fig1 <- ggplot(DatasetAge1, aes(y = TSLF, x = (predictAge))) +
+cor.test((DatasetAge1_proj$predictAge), DatasetAge1_proj$TSLF)
+Fig1 <- ggplot(DatasetAge1_proj, aes(y = TSLF, x = (predictAge))) +
   geom_point() +
   ggtitle("Plot age") +
   ylab("Observed (Years)") +
@@ -383,9 +385,10 @@ Fig1 <- ggplot(DatasetAge1, aes(y = TSLF, x = (predictAge))) +
   ylim(0, 300) +
   facet_wrap(~ecozone) +
   theme_bw()
-Fig1
+ggsave(file.path(figsDir, "Fig1.png"), Fig1)
 
 ## ROF region
+compareCRS(predPrevAge, DatasetAge1_proj, verbose = TRUE)
 rasValue0 <- raster::extract(predPrevAge, DatasetAge1_proj)
 DatasetAge2 <- as.data.frame(cbind(DatasetAge1_proj, rasValue0))
 colnames(DatasetAge2)[11] <- "PrevAge"
@@ -407,7 +410,6 @@ Fig2 <- ggplot(DatasetAge3[which(DatasetAge3$TSLF > 30 & DatasetAge3$predictAge 
   facet_wrap(~ecozone) +
   # annotate("text", x = 20, y = 200, label = "r=0.46, p<0.001", hjust = 0, vjust = 0, fontface = 1, size = 4) +
   theme_bw()
-Fig2
 
 cor.test(DatasetAge3[which(DatasetAge3$TSLF > 30 & DatasetAge3$PrevAge > 30), ]$PrevAge,
          DatasetAge3[which(DatasetAge3$TSLF > 30 & DatasetAge3$PrevAge > 30), ]$TSLF)
@@ -423,18 +425,18 @@ Fig3 <- ggplot(DatasetAge3[which(DatasetAge3$TSLF > 30 & DatasetAge3$PrevAge > 3
   facet_wrap(~ecozone) +
   # annotate("text", x = 20, y = 200, label = "r=0.46, p<0.001", hjust = 0, vjust = 0, fontface = 1, size = 4) +
   theme_bw()
-Fig3
-ggarrange(Fig2, Fig3, labels = "AUTO")
+Figs23 <- ggarrange(Fig2, Fig3, labels = "AUTO")
+ggsave(file.path(figsDir, "Figs23.png"), Figs23)
 
-### 300 x 300 m
+## create new raster at targetRes
 LCC_simpoints <- Cache(rasterToPoints, x = LCC_sim, progress = "text")
 LCC_simpointsdf <- as.data.frame(LCC_simpoints) ## TODO: use data.table (NOTE: weird issue with S4 conversion?)
-colnames(LCC_simpointsdf) <- c("longitude", "latitude", "LCC")
+colnames(LCC_simpointsdf) <- c("coords.x1", "coords.x2", "LCC")
 rasStack <- stack(LCC, ba, Tave, ecozone)
 rasValue1 <- raster::extract(rasStack, LCC_simpoints[, -3])
 DatasetAgeROF <- as.data.frame(cbind(LCC_simpoints[, -3], rasValue1))
 head(DatasetAgeROF)
-colnames(DatasetAgeROF) <- c("longitude", "latitude", "LCC", "total_BA", "Tave_sm", "ecozone")
+colnames(DatasetAgeROF) <- c("coords.x1", "coords.x2", "LCC", "total_BA", "Tave_sm", "ecozone")
 
 # here we include the time since last fire for de pixels with recorded information of fire history
 DatasetAgeROF2 <- na.omit(DatasetAgeROF)
@@ -464,19 +466,21 @@ hist((DatasetAgeROF2$predictAge))
 DatasetAgeROF3 <- subset(DatasetAgeROF2, predictAge < 200)
 hist((DatasetAgeROF3$predictAge))
 
-# substitute the predictions by the real time since last fire for the plots with information about FF
+## TODO: substitute the predictions by the real time since last fire for the plots with information about FF
+## - waiting on Ian (2022-01-24)
 
 r_obj <- raster(extent(LCC), resolution = c(targetRes, targetRes), crs(LCC))
 
+## new age raster layer
 rastersim <- rasterize(
   x = DatasetAgeROF3[, 1:2], # lon-lat data
   y = r_obj, # raster object
   field = DatasetAgeROF3[, 7], # vals to fill raster with
   fun = mean
-) # aggregate function
-plot(rastersim) # new Age layer
+)
+plot(rastersim) ## TODO: use ggplot, save to png
 
-# previous Age layer
+## previous Age layer
 plot(predPrevAge)
 rasValue2 <- raster::extract(predPrevAge, LCC_simpoints[, -3])
 DatasetAgeROF4 <- as.data.frame(cbind(LCC_simpoints[, -3], rasValue2))
