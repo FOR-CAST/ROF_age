@@ -385,7 +385,7 @@ FigHist2 <- ggplot(DatasetAge1_proj, aes(x = predictAge)) +
   ggtitle("Plot age -Predicted values-") +
   theme_bw()
 
-FigHist <- ggarrange(FigHist1, FigHist2)
+FigHist <- ggpubr::ggarrange(FigHist1, FigHist2)
 ggsave(file.path(figsDir, "plot_age_pred_vs_obs_hists.png"), FigHist)
 
 # Predicted vs Observed all ecozones included--> new Age layer
