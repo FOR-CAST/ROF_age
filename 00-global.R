@@ -335,7 +335,7 @@ predPrevAge <- raster(predPrevAge2)
 crs(predPrevAge, proj = TRUE) ## compare with `targetProj` : OK
 
 ## use different resolution
-LCC_sim <- terra::aggregate(LCC, fact = targetRes / 30, fun = modal, dissolve = FALSE)
+LCC_sim <- terra::aggregate(LCC2, fact = targetRes / 30, fun = modal, dissolve = FALSE)
 res(LCC_sim)
 plot(LCC_sim)
 
