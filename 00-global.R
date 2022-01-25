@@ -189,9 +189,9 @@ DatasetAge1_sp <- DatasetAge1
 coordinates(DatasetAge1_sp) <- c("longitude", "latitude")
 DatasetAge1_sf <- st_as_sf(DatasetAge1_sp)
 st_crs(DatasetAge1_sf) <- "epsg:4326"
-DatasetAge1_sf <- st_transform(DatasetAge1_sf, targetCRS)
+DatasetAge1_sf <- st_transform(DatasetAge1_sf, targetProj) ## TODO: use targetCRS
 DatasetAge1_sp <- as_Spatial(DatasetAge1_sf)
-DatasetAge1_proj <- as.data.frame(DatasetAge1_sp) ## coords.x1 ~= longitude; coords.x2 ~= latitude ## TODO: confirm
+DatasetAge1_proj <- as.data.frame(DatasetAge1_sp) ## coords.x1 ~= longitude; coords.x2 ~= latitude
 rm(DatasetAge1_sf, DatasetAge1_sp)
 
 ## spatial data
@@ -317,6 +317,15 @@ if (lowMemory) {
   ecozone_shp$ZONE_NAME <- as.factor(ecozone_shp$ZONE_NAME)
   ecozone <- fasterize::fasterize(ecozone_shp, ba, field = "ZONE_NAME", fun = "sum")
 }
+
+## TODO: this is the original standAGeMap at 250m
+# predPrevAge <- Cache(
+#   prepInputs,
+#   url = "https://drive.google.com/file/d/1hKyVbPyM9bR09u465fusa5mU7_cz-iZz/",
+#   targetFile = "standAgeMap2011_ROF.tif",
+#   fun = "raster::raster",
+#   destinationPath = inputDir
+# )
 
 predPrevAge <- Cache(
   prepInputs,
