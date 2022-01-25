@@ -265,7 +265,7 @@ if (lowMemory) {
     y = targetProj ## targetCRS not found in GDAL db
   )
   LCC <- raster(LCC2)
-  crs(LCC, proj = TRUE)  ## compare with `targetProj` : OK
+  proj4string(LCC)  ## compare with `targetProj` : OK
 
   ## from https://open.canada.ca/data/en/dataset/4c0d9755-9347-42f2-bb1b-f4d2ff673254
   ba <- Cache(
@@ -332,7 +332,7 @@ predPrevAge2 <- Cache(
   y = targetProj ## targetCRS not found in GDAL db
 )
 predPrevAge <- raster(predPrevAge2)
-crs(predPrevAge, proj = TRUE) ## compare with `targetProj` : OK
+proj4string(predPrevAge) ## compare with `targetProj` : OK
 
 ## use different resolution
 LCC_sim <- terra::aggregate(LCC2, fact = targetRes / 30, fun = modal, dissolve = FALSE)
