@@ -45,7 +45,7 @@ pkgs2 <- c(
   "fasterize", "ggplot2", "googledrive", "mgcv", "raster", "sf", "terra", "tidyr"
 )
 Require(c(
-  pkgs2, "PredictiveEcology/reproducible@terraInProjectInputs (>= 1.2.8.9020)"
+  pkgs2, "PredictiveEcology/reproducible@terraInProjectInputs (>= 1.2.8.9021)"
 ))
 
 if (identical(Sys.info()[["user"]], "achubaty")) {
@@ -281,6 +281,23 @@ if (lowMemory) {
   LCC <- raster(LCC2)
   proj4string(LCC)  ## compare with `targetProj` : OK
 
+  ## TODO: redo using terra
+  # lccDL <- preProcess(
+  #   url = paste0(
+  #     "https://ftp.maps.canada.ca/pub/nrcan_rncan/Land-cover_Couverture-du-sol/",
+  #     "canada-landcover_canada-couverture-du-sol/CanadaLandcover2015.zip"
+  #   ), ## TODO: use 2010?
+  #   targetFile = "CAN_LC_2015_CAL.tif", alsoExtract = "similar",
+  #   destinationPath = inputDir
+  # )
+  # LCC <- terra::rast(lccDL$targetFilePath)
+  # LCC <- Cache(
+  #   postProcessTerra,
+  #   LCC,
+  #   to = studyArea_ROF
+  # ) ## ERROR: crashes the R session !?
+  # LCC <- raster(LCC)
+
   ## from https://open.canada.ca/data/en/dataset/4c0d9755-9347-42f2-bb1b-f4d2ff673254
   ba <- Cache(
     prepInputs,
@@ -332,8 +349,20 @@ if (lowMemory) {
   ecozone <- fasterize::fasterize(ecozone_shp, ba, field = "ZONE_NAME", fun = "sum")
 }
 
-## TODO: this is the original standAGeMap at 250m
-# predPrevAge <- Cache(
+source("scripts/getWildfire_NFI.R")
+wildfires <- Cache(getWildfire_NFI, dPath = inputDir, studyArea = studyArea_ROF)
+
+fPath <- file.path(outputDir, "wildfire", "wildfire_ROF.tif")
+zPath <- file.path(outputDir, "wildfire_ROF.zip")
+checkPath(dirname(fPath), create = TRUE)
+terra::writeRaster(wildfires, fPath)
+utils::zip(zipfile = zPath, files = dirname(fPath))
+googledrive::drive_put(media = zPath,
+                       path = as_id("1DzbbVSYp0br-MIi1iI0EPMGGy4BRrjnk"),
+                       name = basename(zPath))
+
+## TODO: this is the original standAgeMap at 250m
+# prevAgeLayer <- Cache(
 #   prepInputs,
 #   url = "https://drive.google.com/file/d/1hKyVbPyM9bR09u465fusa5mU7_cz-iZz/",
 #   targetFile = "standAgeMap2011_ROF.tif",
@@ -341,21 +370,15 @@ if (lowMemory) {
 #   destinationPath = inputDir
 # )
 
-predPrevAge <- Cache(
-  prepInputs,
+prevAge <- preProcess(
   url = "https://drive.google.com/file/d/14zxLiW_XVoOeLILi9bqpdTtDzOw4JyuP/",
   targetFile = "standAgeMap_it_1_ts_2011_ProROF.tif",
-  fun = "raster::raster",
   destinationPath = inputDir
 )
-## TODO: remove following workaround to fix projection of LCC:
-predPrevAge2 <- Cache(
-  terra::project,
-  x = terra::rast(predPrevAge),
-  y = targetProj ## targetCRS not found in GDAL db
-)
-predPrevAge <- raster(predPrevAge2)
-proj4string(predPrevAge) ## compare with `targetProj` : OK
+prevAgeLayer <- terra::rast(prevAge$targetFilePath)
+prevAgeLayer <- postProcessTerra(prevAgeLayer, to = studyArea_ROF)
+prevAgeLayer <- raster(prevAgeLayer)
+proj4string(prevAgeLayer) ## compare with `targetProj` : OK
 
 ## use different resolution
 LCC_sim <- terra::aggregate(LCC2, fact = targetRes / 30, fun = modal, dissolve = FALSE)
@@ -426,7 +449,7 @@ Fig1 <- ggplot(DatasetAge1_proj, aes(y = TSLF, x = (predictAge))) +
 ggsave(file.path(figsDir, "Fig1.png"), Fig1)
 
 ## ROF region
-rasValue0 <- raster::extract(predPrevAge, DatasetAge1_proj[, c("coords.x1", "coords.x2")]) ## TODO: none of the points are in the raster's spatial extent!
+rasValue0 <- raster::extract(prevAgeLayer, DatasetAge1_proj[, c("coords.x1", "coords.x2")]) ## TODO: none of the points are in the raster's spatial extent!
 DatasetAge2 <- as.data.frame(cbind(DatasetAge1_proj, rasValue0))
 colnames(DatasetAge2)[11] <- "PrevAge"
 DatasetAge3 <- na.omit(DatasetAge2)
@@ -495,6 +518,7 @@ DatasetAgeROF2 <- subset(DatasetAgeROF2, total_BA > 0)
 levels(DatasetAgeROF2$LCC)[grepl("11|12|13", levels(DatasetAgeROF2$LCC))] <- "11_12_13"
 
 DatasetAgeROF2$predictAge <- exp(predict(modage2, DatasetAgeROF2)) # ,exclude=c('longitude','latitude')
+## TODO: subset the fire pixels with the ages from the TSF map
 DatasetAgeROF2$predictAge <- round(DatasetAgeROF2$predictAge, 0)
 head(DatasetAgeROF2$predictAge)
 DatasetAgeROF2$predictAge[!is.finite(DatasetAgeROF2$predictAge)] <- NA
@@ -518,11 +542,13 @@ rastersim <- rasterize(
 plot(rastersim) ## TODO: use ggplot, save to png
 
 ## previous Age layer
-plot(predPrevAge)
-rasValue2 <- raster::extract(predPrevAge, LCC_simpoints[, -3])
+plot(prevAgeLayer)
+rasValue2 <- raster::extract(prevAgeLayer, LCC_simpoints[, -3])
 DatasetAgeROF4 <- as.data.frame(cbind(LCC_simpoints[, -3], rasValue2))
 colnames(DatasetAgeROF4)[3] <- "PrevAge"
 DatasetAgeROF4 <- na.omit(DatasetAgeROF4)
 hist(DatasetAgeROF4$PrevAge)
+
+## TODO: create a diff layer
 
 gc()
