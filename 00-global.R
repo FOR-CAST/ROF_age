@@ -122,7 +122,7 @@ dataSyn2$year_BA <- as.integer(dataSyn2$year_BA)
 # NFI, TREESOURCE
 f04 <- file.path(inputDir, "FinalNFI&TreeSource.txt") #
 if (!file.exists(f04)) {
-  drive_download(as_id("1ROJeiPdI7fvdcPm9MMQMJTseLko0-TZR"), path = f04) # , overwrite =FALSE
+  drive_download(as_id("1ROJeiPdI7fvdcPm9MMQMJTseLko0-TZR"), path = f04)
 }
 dataFF2 <- read.table(f04, header = TRUE, sep = "\t", fill = TRUE, dec = ".")
 colnames(dataFF2)[6] <- "ecozone"
@@ -192,9 +192,17 @@ st_crs(DatasetAge1_sf) <- "epsg:4326"
 DatasetAge1_sf <- st_transform(DatasetAge1_sf, targetProj) ## TODO: use targetCRS
 DatasetAge1_sp <- as_Spatial(DatasetAge1_sf)
 DatasetAge1_proj <- as.data.frame(DatasetAge1_sp) ## coords.x1 ~= longitude; coords.x2 ~= latitude
-rm(DatasetAge1_sf, DatasetAge1_sp)
 
 ## spatial data
+canProvs <- raster::getData("GADM", path = inputDir, country = "CAN", level = 1, type = "sf")
+canProvs <- st_transform(canProvs, crs = targetProj) ## TODO: use targetCRS
+canProvs <- as_Spatial(canProvs)
+
+png(file.path(figsDir, "DatasetAge1_all.png"))
+plot(canProvs)
+plot(DatasetAge1_sp, add = TRUE)
+dev.off()
+
 studyArea_ROF <- prepInputs(
   url = "https://drive.google.com/file/d/1iOXXIkvY-YaR9BTG_SRd5R_iLstk99n0",
   targetCRS = targetProj,
@@ -204,7 +212,7 @@ studyArea_ROF <- prepInputs(
   filename2 = "ROF_RA_def_50km_buff",
   overwrite = TRUE
 )
-compareCRS(studyArea_ROF, targetProj)
+compareCRS(targetProj, studyArea_ROF, DatasetAge1_sp)
 
 if (lowMemory) {
   ## use rasters pre-cropped to ROF
