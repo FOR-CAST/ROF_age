@@ -40,12 +40,17 @@ pkgs1 <- c( ## TODO: remove unused packages
 )
 Require(pkgs1, require = FALSE) ## don't load/attach yet, just ensure these get installed
 
+## install these if needed, and load/attach:
 pkgs2 <- c(
-  .spatialPkgs, "fasterize", "ggplot2", "googledrive", "mgcv", "tidyr"
+  "fasterize", "ggplot2", "googledrive", "mgcv", "raster", "sf", "terra", "tidyr"
 )
-Require(pkgs2) ## install if needed, and load/attach
+Require(c(
+  pkgs2, "PredictiveEcology/reproducible@terraInProjectInputs (>= 1.2.8.9020)"
+))
 
-Require("PredictiveEcology/reproducible@development")
+if (identical(Sys.info()[["user"]], "achubaty")) {
+  drive_auth(email = "achubaty@for-cast.ca")
+}
 
 ## NOTE: many GIS etc. ops require large amounts of memory (>80 GB)
 lowMemory <- if (grepl("for-cast[.]ca", Sys.info()[["nodename"]])) FALSE else TRUE
@@ -195,6 +200,7 @@ DatasetAge1_proj <- as.data.frame(DatasetAge1_sp) ## coords.x1 ~= longitude; coo
 
 ## spatial data
 canProvs <- raster::getData("GADM", path = inputDir, country = "CAN", level = 1, type = "sf")
+st_crs(canProvs) <- st_crs(canProvs) ## fix "old-style crs" warning from sf
 canProvs <- st_transform(canProvs, crs = targetProj) ## TODO: use targetCRS
 canProvs <- as_Spatial(canProvs)
 
@@ -261,7 +267,7 @@ if (lowMemory) {
       "canada-landcover_canada-couverture-du-sol/CanadaLandcover2015.zip"
     ), ## TODO: use 2010?
     targetFile = "CAN_LC_2015_CAL.tif", alsoExtract = "similar",
-    fun = "raster::raster",
+    fun = "raster::raster", ## TODO: "terra::rast" not working yet
     destinationPath = inputDir,
     studyArea = studyArea_ROF,
     useStudyAreaCRS = TRUE
