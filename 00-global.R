@@ -222,7 +222,7 @@ compareCRS(targetProj, studyArea_ROF, DatasetAge1_sp)
 
 if (lowMemory) {
   ## use rasters pre-cropped to ROF
-  LCC <- prepInputs(
+  LCC2015 <- prepInputs(
     url = "https://drive.google.com/file/d/13bHz8XEW5sIBZ4Mn-4_hxg-iaWmDEnlO/",
     targetFile = "CAN_LC_2015_CAL_Clip1.tif", alsoExtract = "similar",
     fun = "raster::raster", ## TODO: use terra
@@ -236,7 +236,7 @@ if (lowMemory) {
     targetFile = "CA_forest_basal_area_2015_ROF.tif",
     fun = "raster::raster", ## TODO: use terra
     destinationPath = inputDir,
-    rasterToMatch = LCC
+    rasterToMatch = LCC2015
   )
 
   Tave <- Cache(
@@ -245,7 +245,7 @@ if (lowMemory) {
     targetFile = "Normal_1981_2010_Tave_sm_ROF.tif",
     fun = "raster::raster", ## TODO: use terra
     destinationPath = inputDir,
-    rasterToMatch = LCC
+    rasterToMatch = LCC2015
   )
 
   ecozone <- Cache(
@@ -254,13 +254,13 @@ if (lowMemory) {
     targetFile = "ecozones_PolygonToRaster21_C1.tif", alsoExtract = "similar",
     fun = "raster::raster", ## TODO: use terra
     destinationPath = inputDir,
-    rasterToMatch = LCC
+    rasterToMatch = LCC2015
   )
 } else {
   ## use national layers
 
   ## from https://open.canada.ca/data/en/dataset/4e615eae-b90c-420b-adee-2ca35896caf6
-  LCC <- Cache(
+  LCC2015 <- Cache(
     prepInputs,
     url = paste0(
       "https://ftp.maps.canada.ca/pub/nrcan_rncan/Land-cover_Couverture-du-sol/",
@@ -272,14 +272,14 @@ if (lowMemory) {
     studyArea = studyArea_ROF,
     useStudyAreaCRS = TRUE
   )
-  ## TODO: remove following workaround to fix projection of LCC:
-  LCC2 <- Cache(
+  ## TODO: remove following workaround to fix projection of LCC2015:
+  LCC2015b <- Cache(
     terra::project,
-    x = terra::rast(LCC),
+    x = terra::rast(LCC2015),
     y = targetProj ## targetCRS not found in GDAL db
   )
-  LCC <- raster(LCC2)
-  proj4string(LCC)  ## compare with `targetProj` : OK
+  LCC2015 <- raster(LCC2015b)
+  proj4string(LCC2015)  ## compare with `targetProj` : OK
 
   ## TODO: redo using terra
   # lccDL <- preProcess(
@@ -290,13 +290,13 @@ if (lowMemory) {
   #   targetFile = "CAN_LC_2015_CAL.tif", alsoExtract = "similar",
   #   destinationPath = inputDir
   # )
-  # LCC <- terra::rast(lccDL$targetFilePath)
-  # LCC <- Cache(
+  # LCC2015 <- terra::rast(lccDL$targetFilePath)
+  # LCC2015 <- Cache(
   #   postProcessTerra,
-  #   from = LCC,
+  #   from = LCC2015,
   #   to = studyArea_ROF
   # ) ## ERROR: crashes the R session !?
-  # LCC <- raster(LCC)
+  # LCC2015 <- raster(LCC2015)
 
   ## from https://open.canada.ca/data/en/dataset/4c0d9755-9347-42f2-bb1b-f4d2ff673254
   ba <- Cache(
@@ -306,7 +306,7 @@ if (lowMemory) {
     targetFile = "CA_forest_basal_area_2015_NN.tif", alsoExtract = "similar",
     fun = "raster::raster",
     destinationPath = inputDir,
-    rasterToMatch = LCC
+    rasterToMatch = LCC2015
   )
 
   Tave <- Cache(
@@ -315,7 +315,7 @@ if (lowMemory) {
     targetFile = "Normal_1981_2010_Tave_sm.tif", alsoExtract = "similar",
     fun = "raster::raster",
     destinationPath = inputDir,
-    rasterToMatch = LCC
+    rasterToMatch = LCC2015
   )
 
   ## TODO: use finer-resolution climate data from ClimateNA desktop app:
@@ -332,7 +332,7 @@ if (lowMemory) {
   #   postProcess,
   #   x = Tave,
   #   destinationPath = inputDir,
-  #   rasterToMatch = LCC
+  #   rasterToMatch = LCC2015
   # )
 
   ecozone_shp <- prepInputs(
@@ -342,7 +342,7 @@ if (lowMemory) {
     fun = "sf::st_read",
     destinationPath = inputDir,
     studyArea = studyArea_ROF,
-    targetCRS = targetProj
+    useStudyAreaCRS = TRUE
   )
 
   ecozone_shp$ZONE_NAME <- as.factor(ecozone_shp$ZONE_NAME)
@@ -361,27 +361,32 @@ googledrive::drive_put(media = zPath,
                        path = as_id("1DzbbVSYp0br-MIi1iI0EPMGGy4BRrjnk"),
                        name = basename(zPath))
 
-## TODO: this is the original standAgeMap at 250m
-# prevAgeLayer <- Cache(
-#   prepInputs,
-#   url = "https://drive.google.com/file/d/1hKyVbPyM9bR09u465fusa5mU7_cz-iZz/",
-#   targetFile = "standAgeMap2011_ROF.tif",
-#   fun = "raster::raster",
-#   destinationPath = inputDir
-# )
-
 prevAge <- preProcess(
-  url = "https://drive.google.com/file/d/14zxLiW_XVoOeLILi9bqpdTtDzOw4JyuP/",
-  targetFile = "standAgeMap_it_1_ts_2011_ProROF.tif",
+  url = "https://drive.google.com/file/d/1hKyVbPyM9bR09u465fusa5mU7_cz-iZz/", ## orig 250 m layer
+  targetFile = "standAgeMap2011_ROF.tif",
   destinationPath = inputDir
 )
+
 prevAgeLayer <- terra::rast(prevAge$targetFilePath)
 prevAgeLayer <- postProcessTerra(prevAgeLayer, to = studyArea_ROF)
 #prevAgeLayer <- raster(prevAgeLayer)
-#proj4string(prevAgeLayer) ## compare with `targetProj` : OK
+
+plot(prevAgeLayer)
+
+prevAge2 <- preProcess(
+  url = "https://drive.google.com/file/d/14zxLiW_XVoOeLILi9bqpdTtDzOw4JyuP/", ## Raquels coarser res layer
+  targetFile = "standAgeMap_it_1_ts_2011_ProROF.tif",
+  destinationPath = inputDir
+)
+
+prevAgeLayer2 <- terra::rast(prevAge2$targetFilePath)
+prevAgeLayer2 <- postProcessTerra(prevAgeLayer2, to = studyArea_ROF)
+#prevAgeLayer2 <- raster(prevAgeLayer2)
+
+plot(prevAgeLayer2)
 
 ## use different resolution
-LCC_sim <- terra::aggregate(LCC2, fact = targetRes / 30, fun = modal, dissolve = FALSE)
+LCC_sim <- terra::aggregate(LCC2015b, fact = targetRes / 30, fun = modal, dissolve = FALSE)
 res(LCC_sim)
 plot(LCC_sim)
 
@@ -403,7 +408,6 @@ modage2 <- bam(TSLF ~ s(total_BA) +
 AIC(modage2)
 summary(modage2)
 
-## TODO: plot to file
 png(file.path(figsDir, "modage2.png"), width = 1200, height = 600, pointsize = 12)
 par(mfrow = c(2, 2), mar = c(4, 4, 2, 1))
 gam.check(modage2, rep = 100)
@@ -449,8 +453,20 @@ Fig1 <- ggplot(DatasetAge1_proj, aes(y = TSLF, x = (predictAge))) +
 ggsave(file.path(figsDir, "Fig1.png"), Fig1)
 
 ## ROF region
-rasValue0 <- raster::extract(prevAgeLayer, DatasetAge1_proj[, c("coords.x1", "coords.x2")]) ## TODO: none of the points are in the raster's spatial extent!
-DatasetAge2 <- as.data.frame(cbind(DatasetAge1_proj, rasValue0))
+png(file.path(figsDir, "prevAgeLayer_w_points.png"), width = 1200, height = 600)
+plot(prevAgeLayer)
+plot(as_Spatial(studyArea_ROF), add = TRUE)
+plot(DatasetAge1_sp, col = "blue", add = TRUE)
+dev.off()
+
+DatasetAge1_ROF <- st_intersection(DatasetAge1_sf, studyArea_ROF)
+rasValue0 <- terra::extract(prevAgeLayer, terra::vect(as_Spatial(DatasetAge1_ROF)))
+#rasValue0 <- na.omit(rasValue0)
+
+## TODO: all points within ROF  have age = 107 ??
+DatasetAge2 <- as.data.frame(cbind(
+  as.data.frame(DatasetAge1_ROF), coordinates(as_Spatial(DatasetAge1_ROF)), rasValue0
+))
 colnames(DatasetAge2)[11] <- "PrevAge"
 DatasetAge3 <- na.omit(DatasetAge2)
 DatasetAge3$predictAge <- exp(predict(modage2, DatasetAge3))
@@ -485,14 +501,14 @@ Fig3 <- ggplot(DatasetAge3[which(DatasetAge3$TSLF > 30 & DatasetAge3$PrevAge > 3
   facet_wrap(~ecozone) +
   # annotate("text", x = 20, y = 200, label = "r=0.46, p<0.001", hjust = 0, vjust = 0, fontface = 1, size = 4) +
   theme_bw()
-Figs23 <- ggarrange(Fig2, Fig3, labels = "AUTO")
+Figs23 <- ggpubr::ggarrange(Fig2, Fig3, labels = "AUTO")
 ggsave(file.path(figsDir, "Figs23.png"), Figs23)
 
 ## create new raster at targetRes
-LCC_simpoints <- Cache(rasterToPoints, x = LCC_sim, progress = "text")
+LCC_simpoints <- Cache(rasterToPoints, x = raster(LCC_sim), progress = "text")
 LCC_simpointsdf <- as.data.frame(LCC_simpoints) ## TODO: use data.table (NOTE: weird issue with S4 conversion?)
 colnames(LCC_simpointsdf) <- c("coords.x1", "coords.x2", "LCC")
-rasStack <- stack(LCC, ba, Tave, ecozone)
+rasStack <- stack(LCC2015, ba, Tave, ecozone)
 rasValue1 <- raster::extract(rasStack, LCC_simpoints[, -3])
 DatasetAgeROF <- as.data.frame(cbind(LCC_simpoints[, -3], rasValue1))
 head(DatasetAgeROF)
@@ -530,7 +546,7 @@ hist((DatasetAgeROF3$predictAge))
 ## TODO: substitute the predictions by the real time since last fire for the plots with information about FF
 ## - waiting on Ian (2022-01-24)
 
-r_obj <- raster(extent(LCC), resolution = c(targetRes, targetRes), crs(LCC))
+r_obj <- raster(extent(LCC2015), resolution = c(targetRes, targetRes), crs(LCC2015))
 
 ## new age raster layer
 rastersim <- rasterize(
@@ -543,7 +559,7 @@ plot(rastersim) ## TODO: use ggplot, save to png
 
 ## previous Age layer
 plot(prevAgeLayer)
-rasValue2 <- raster::extract(prevAgeLayer, LCC_simpoints[, -3])
+rasValue2 <- terra::extract(prevAgeLayer, LCC_simpoints[, -3])
 DatasetAgeROF4 <- as.data.frame(cbind(LCC_simpoints[, -3], rasValue2))
 colnames(DatasetAgeROF4)[3] <- "PrevAge"
 DatasetAgeROF4 <- na.omit(DatasetAgeROF4)
