@@ -210,9 +210,9 @@ plot(DatasetAge1_sp, add = TRUE)
 dev.off()
 
 studyArea_ROF <- prepInputs(
-  url = "https://drive.google.com/file/d/1iOXXIkvY-YaR9BTG_SRd5R_iLstk99n0",
+  url = "https://drive.google.com/file/d/1DzVRglqJNvZA8NZZ7XKe3-6Q5f8tlydQ/",
   targetCRS = targetProj,
-  targetFile = "ROF_RA_def_50km_buff.shp", alsoExtract = "similar",
+  targetFile = "ROF_RA_def.shp", alsoExtract = "similar",
   fun = "sf::st_read",
   destinationPath = inputDir,
   filename2 = "ROF_RA_def_50km_buff",
