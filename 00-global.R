@@ -67,7 +67,7 @@ inputDir <- checkPath("inputs", create = TRUE)
 outputDir <- checkPath("outputs", create = TRUE)
 scratchDir <- checkPath("scratch", create = TRUE)
 
-figsDir <- checkPath(file.path(outputDir, "figures"), create = TRUE)
+figsDir <- checkPath("figures", create = TRUE)
 
 ## project options
 raster::rasterOptions(default = TRUE)
@@ -293,7 +293,7 @@ if (lowMemory) {
   # LCC <- terra::rast(lccDL$targetFilePath)
   # LCC <- Cache(
   #   postProcessTerra,
-  #   LCC,
+  #   from = LCC,
   #   to = studyArea_ROF
   # ) ## ERROR: crashes the R session !?
   # LCC <- raster(LCC)
@@ -377,8 +377,8 @@ prevAge <- preProcess(
 )
 prevAgeLayer <- terra::rast(prevAge$targetFilePath)
 prevAgeLayer <- postProcessTerra(prevAgeLayer, to = studyArea_ROF)
-prevAgeLayer <- raster(prevAgeLayer)
-proj4string(prevAgeLayer) ## compare with `targetProj` : OK
+#prevAgeLayer <- raster(prevAgeLayer)
+#proj4string(prevAgeLayer) ## compare with `targetProj` : OK
 
 ## use different resolution
 LCC_sim <- terra::aggregate(LCC2, fact = targetRes / 30, fun = modal, dissolve = FALSE)
@@ -404,7 +404,7 @@ AIC(modage2)
 summary(modage2)
 
 ## TODO: plot to file
-dev.new(width = 40, height = 20, pointsize = 12)
+png(file.path(figsDir, "modage2.png"), width = 1200, height = 600, pointsize = 12)
 par(mfrow = c(2, 2), mar = c(4, 4, 2, 1))
 gam.check(modage2, rep = 100)
 dev.off()
