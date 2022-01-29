@@ -45,7 +45,7 @@ pkgs2 <- c(
   "fasterize", "ggplot2", "googledrive", "mgcv", "raster", "sf", "terra", "tidyr"
 )
 Require(c(
-  pkgs2, "PredictiveEcology/reproducible@terraInProjectInputs (>= 1.2.8.9021)"
+  pkgs2, "PredictiveEcology/reproducible@terraInProjectInputs (>= 1.2.8.9023)"
 ))
 
 if (identical(Sys.info()[["user"]], "achubaty")) {
@@ -220,6 +220,8 @@ studyArea_ROF <- prepInputs(
 )
 compareCRS(targetProj, studyArea_ROF, DatasetAge1_sp)
 
+source("scripts/prepInputsTerra.R")
+
 if (lowMemory) {
   ## use rasters pre-cropped to ROF
   LCC2015 <- prepInputs(
@@ -261,59 +263,32 @@ if (lowMemory) {
 
   ## from https://open.canada.ca/data/en/dataset/4e615eae-b90c-420b-adee-2ca35896caf6
   LCC2015 <- Cache(
-    prepInputs,
+    prepInputs_Terra,
     url = paste0(
       "https://ftp.maps.canada.ca/pub/nrcan_rncan/Land-cover_Couverture-du-sol/",
       "canada-landcover_canada-couverture-du-sol/CanadaLandcover2015.zip"
     ), ## TODO: use 2010?
-    targetFile = "CAN_LC_2015_CAL.tif", alsoExtract = "similar",
-    fun = "raster::raster", ## TODO: "terra::rast" not working yet
+    targetFile = "CAN_LC_2015_CAL.tif",
     destinationPath = inputDir,
-    studyArea = studyArea_ROF,
-    useStudyAreaCRS = TRUE
+    studyArea = studyArea_ROF
   )
-  ## TODO: remove following workaround to fix projection of LCC2015:
-  LCC2015b <- Cache(
-    terra::project,
-    x = terra::rast(LCC2015),
-    y = targetProj ## targetCRS not found in GDAL db
-  )
-  LCC2015 <- raster(LCC2015b)
-  proj4string(LCC2015)  ## compare with `targetProj` : OK
-
-  ## TODO: redo using terra
-  # lccDL <- preProcess(
-  #   url = paste0(
-  #     "https://ftp.maps.canada.ca/pub/nrcan_rncan/Land-cover_Couverture-du-sol/",
-  #     "canada-landcover_canada-couverture-du-sol/CanadaLandcover2015.zip"
-  #   ), ## TODO: use 2010?
-  #   targetFile = "CAN_LC_2015_CAL.tif", alsoExtract = "similar",
-  #   destinationPath = inputDir
-  # )
-  # LCC2015 <- terra::rast(lccDL$targetFilePath)
-  # LCC2015 <- Cache(
-  #   postProcessTerra,
-  #   from = LCC2015,
-  #   to = studyArea_ROF
-  # ) ## ERROR: crashes the R session !?
-  # LCC2015 <- raster(LCC2015)
+  #LCC2015 <- raster::raster(LCC2015)
 
   ## from https://open.canada.ca/data/en/dataset/4c0d9755-9347-42f2-bb1b-f4d2ff673254
   ba <- Cache(
-    prepInputs,
-    # url = "https://opendata.nfis.org/downloads/forest_change/CA_forest_basal_area_2015_NN.zip", ## TODO: server problem
-    url = "https://drive.google.com/file/d/1Vyqb3Q-2T45v963RlFb6EApqyPSMKwKO/",
-    targetFile = "CA_forest_basal_area_2015_NN.tif", alsoExtract = "similar",
-    fun = "raster::raster",
+    prepInputs_Terra,
+    url = "https://opendata.nfis.org/downloads/forest_change/CA_forest_basal_area_2015_NN.zip",
+    # url = "https://drive.google.com/file/d/1Vyqb3Q-2T45v963RlFb6EApqyPSMKwKO/", ## backup version
+    targetFile = "CA_forest_basal_area_2015_NN.tif",
     destinationPath = inputDir,
     rasterToMatch = LCC2015
   )
+  #ba <- raster::raster(ba)
 
   Tave <- Cache(
-    prepInputs,
+    prepInputs_Terra,
     url = "https://s3-us-west-2.amazonaws.com/www.cacpd.org/CMIP6/normals/Normal_1981_2010_bioclim.zip",
-    targetFile = "Normal_1981_2010_Tave_sm.tif", alsoExtract = "similar",
-    fun = "raster::raster",
+    targetFile = "Normal_1981_2010_Tave_sm.tif",
     destinationPath = inputDir,
     rasterToMatch = LCC2015
   )
@@ -346,7 +321,7 @@ if (lowMemory) {
   )
 
   ecozone_shp$ZONE_NAME <- as.factor(ecozone_shp$ZONE_NAME)
-  ecozone <- fasterize::fasterize(ecozone_shp, ba, field = "ZONE_NAME", fun = "sum")
+  ecozone <- fasterize::fasterize(ecozone_shp, raster(ba), field = "ZONE_NAME", fun = "sum")
 }
 
 source("scripts/getWildfire_NFI.R")
@@ -361,32 +336,28 @@ googledrive::drive_put(media = zPath,
                        path = as_id("1DzbbVSYp0br-MIi1iI0EPMGGy4BRrjnk"),
                        name = basename(zPath))
 
-prevAge <- preProcess(
+prevAgeLayer <- prepInputs_Terra(
   url = "https://drive.google.com/file/d/1hKyVbPyM9bR09u465fusa5mU7_cz-iZz/", ## orig 250 m layer
   targetFile = "standAgeMap2011_ROF.tif",
-  destinationPath = inputDir
+  destinationPath = inputDir,
+  studyArea = studyArea_ROF
 )
-
-prevAgeLayer <- terra::rast(prevAge$targetFilePath)
-prevAgeLayer <- postProcessTerra(prevAgeLayer, to = studyArea_ROF)
 #prevAgeLayer <- raster(prevAgeLayer)
 
 plot(prevAgeLayer)
 
-prevAge2 <- preProcess(
+prevAgeLayer2 <- prepInputs_Terra(
   url = "https://drive.google.com/file/d/14zxLiW_XVoOeLILi9bqpdTtDzOw4JyuP/", ## Raquels coarser res layer
   targetFile = "standAgeMap_it_1_ts_2011_ProROF.tif",
-  destinationPath = inputDir
+  destinationPath = inputDir,
+  studyArea = studyArea_ROF
 )
-
-prevAgeLayer2 <- terra::rast(prevAge2$targetFilePath)
-prevAgeLayer2 <- postProcessTerra(prevAgeLayer2, to = studyArea_ROF)
 #prevAgeLayer2 <- raster(prevAgeLayer2)
 
 plot(prevAgeLayer2)
 
 ## use different resolution
-LCC_sim <- terra::aggregate(LCC2015b, fact = targetRes / 30, fun = modal, dissolve = FALSE)
+LCC_sim <- terra::aggregate(LCC2015, fact = targetRes / 30, fun = modal, dissolve = FALSE)
 res(LCC_sim)
 plot(LCC_sim)
 
