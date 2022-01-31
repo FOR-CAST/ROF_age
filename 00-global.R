@@ -228,7 +228,7 @@ if (lowMemory) {
     fun = "raster::raster", ## TODO: use terra
     destinationPath = inputDir
   )
-  
+
   ## NOTE: reprojecting rasters in memory requires too much RAM to not use GDAL (see options above)
   ba <- Cache(
     prepInputs,
@@ -238,7 +238,7 @@ if (lowMemory) {
     destinationPath = inputDir,
     rasterToMatch = LCC2015
   )
-  
+
   Tave <- Cache(
     prepInputs,
     url = "https://drive.google.com/file/d/1HT0swKK22D59n47RbbBJAyC1qGlAGb-E/",
@@ -247,7 +247,7 @@ if (lowMemory) {
     destinationPath = inputDir,
     rasterToMatch = LCC2015
   )
-  
+
   ecozone <- Cache(
     prepInputs,
     url = "https://drive.google.com/file/d/1IwRayjkjOGFjIUDfCYyPsKmgx9MRGqKA/",
@@ -258,7 +258,7 @@ if (lowMemory) {
   )
 } else {
   ## use national layers
-  
+
   ## from https://open.canada.ca/data/en/dataset/4e615eae-b90c-420b-adee-2ca35896caf6
   LCC2015 <- Cache(
     prepInputs,
@@ -273,7 +273,6 @@ if (lowMemory) {
     useStudyAreaCRS = TRUE
   )
   ## TODO: remove following workaround to fix projection of LCC2015:
-  # I think this should located outside of else{}. But the main problem is that right now it doesn't work for me
   LCC2015b <- Cache(
     terra::project,
     x = terra::rast(LCC2015),
@@ -281,7 +280,7 @@ if (lowMemory) {
   )
   LCC2015 <- raster(LCC2015b)
   proj4string(LCC2015)  ## compare with `targetProj` : OK
-  
+
   ## TODO: redo using terra
   # lccDL <- preProcess(
   #   url = paste0(
@@ -298,7 +297,7 @@ if (lowMemory) {
   #   to = studyArea_ROF
   # ) ## ERROR: crashes the R session !?
   # LCC2015 <- raster(LCC2015)
-  
+
   ## from https://open.canada.ca/data/en/dataset/4c0d9755-9347-42f2-bb1b-f4d2ff673254
   ba <- Cache(
     prepInputs,
@@ -309,7 +308,7 @@ if (lowMemory) {
     destinationPath = inputDir,
     rasterToMatch = LCC2015
   )
-  
+
   Tave <- Cache(
     prepInputs,
     url = "https://s3-us-west-2.amazonaws.com/www.cacpd.org/CMIP6/normals/Normal_1981_2010_bioclim.zip",
@@ -318,7 +317,7 @@ if (lowMemory) {
     destinationPath = inputDir,
     rasterToMatch = LCC2015
   )
-  
+
   ## TODO: use finer-resolution climate data from ClimateNA desktop app:
   # ft <- "Normal_1981_2010S/Tave_sm.asc"
   # fz <- file.path(inputDir, "Normal_1981_2010S.zip")
@@ -335,7 +334,7 @@ if (lowMemory) {
   #   destinationPath = inputDir,
   #   rasterToMatch = LCC2015
   # )
-  
+
   ecozone_shp <- prepInputs(
     url = "https://sis.agr.gc.ca/cansis/nsdb/ecostrat/zone/ecozone_shp.zip",
     targetFile = "ecozones.shp",
@@ -345,7 +344,7 @@ if (lowMemory) {
     studyArea = studyArea_ROF,
     useStudyAreaCRS = TRUE
   )
-  
+
   ecozone_shp$ZONE_NAME <- as.factor(ecozone_shp$ZONE_NAME)
   ecozone <- fasterize::fasterize(ecozone_shp, ba, field = "ZONE_NAME", fun = "sum")
 }
@@ -383,15 +382,11 @@ prevAge2 <- preProcess(
 prevAgeLayer2 <- terra::rast(prevAge2$targetFilePath)
 prevAgeLayer2 <- postProcessTerra(prevAgeLayer2, to = studyArea_ROF)
 #prevAgeLayer2 <- raster(prevAgeLayer2)
-x11(width=15, height=8.5, pointsize=12) 
+
 plot(prevAgeLayer2)
 
 ## use different resolution
-LCC_sim <- terra::aggregate(LCC2015b, fact = targetRes / 30, fun = modal, dissolve = FALSE)# This require to run some lines (around 276 line, LCC2015b) inside the else{}, so we should move it out of the esle as it is required
-
-# Can I use LCC2015, instead LCC2015b?
-LCC_sim <- terra::aggregate(LCC2015, fact = targetRes / 30, fun = modal, dissolve = FALSE)# This require to run some lines (around 276 line, LCC2015b) inside the else{}, so we should move it out of the esle as it is required
-
+LCC_sim <- terra::aggregate(LCC2015b, fact = targetRes / 30, fun = modal, dissolve = FALSE)
 res(LCC_sim)
 plot(LCC_sim)
 
@@ -472,7 +467,7 @@ rasValue0 <- terra::extract(prevAgeLayer, terra::vect(as_Spatial(DatasetAge1_ROF
 DatasetAge2 <- as.data.frame(cbind(
   as.data.frame(DatasetAge1_ROF), coordinates(as_Spatial(DatasetAge1_ROF)), rasValue0
 ))
-colnames(DatasetAge2)[17] <- "PrevAge"
+colnames(DatasetAge2)[11] <- "PrevAge"
 DatasetAge3 <- na.omit(DatasetAge2)
 DatasetAge3$predictAge <- exp(predict(modage2, DatasetAge3))
 
