@@ -331,10 +331,10 @@ fPath <- file.path(outputDir, "wildfire", "wildfire_ROF.tif")
 zPath <- file.path(outputDir, "wildfire_ROF.zip")
 checkPath(dirname(fPath), create = TRUE)
 terra::writeRaster(wildfires, fPath)
-utils::zip(zipfile = zPath, files = dirname(fPath))
-googledrive::drive_put(media = zPath,
-                       path = as_id("1DzbbVSYp0br-MIi1iI0EPMGGy4BRrjnk"),
-                       name = basename(zPath))
+archive::archive_write_files(zipfile = zPath, files = dirname(fPath))
+# googledrive::drive_put(media = zPath,
+#                        path = as_id("1DzbbVSYp0br-MIi1iI0EPMGGy4BRrjnk"),
+#                        name = basename(zPath))
 
 prevAgeLayer <- prepInputs_Terra(
   url = "https://drive.google.com/file/d/1hKyVbPyM9bR09u465fusa5mU7_cz-iZz/", ## orig 250 m layer
