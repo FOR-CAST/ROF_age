@@ -341,6 +341,7 @@ if (lowMemory) {
   # )
 
   wildfires <- Cache(getWildfire_NFI, dPath = inputDir,  rasterToMatch = LCC2015)
+   ## TODO: confirm min max vaules
 }
 
 ecozone_shp <- prepInputs(
@@ -360,7 +361,7 @@ prevAgeLayer <- prepInputs_Terra(
   url = "https://drive.google.com/file/d/1hKyVbPyM9bR09u465fusa5mU7_cz-iZz/", ## orig 250 m layer
   targetFile = "standAgeMap2011_ROF.tif",
   destinationPath = inputDir,
-  studyArea = studyArea_ROF
+  rasterToMatch = LCC2015
 )
 #plot(prevAgeLayer)
 
@@ -370,7 +371,7 @@ if (FALSE) {
     url = "https://drive.google.com/file/d/14zxLiW_XVoOeLILi9bqpdTtDzOw4JyuP/",
     targetFile = "standAgeMap_it_1_ts_2011_ProROF.tif",
     destinationPath = inputDir,
-    studyArea = studyArea_ROF
+    rasterToMatch = LCC2015
   )
   #plot(prevAgeLayer2)
 }
@@ -559,7 +560,7 @@ hist(DatasetAgeROF4$PrevAge)
 
 gc()
 
-## upload figs to gdrive
+## upload files to google drive ----------------------------------------------------------------
 if (isTRUE(reupload)) {
   ## input rasters (write, zip, then upload)
   lapply(names(prebuiltRasterFilenames), function(f) {
@@ -573,10 +574,10 @@ if (isTRUE(reupload)) {
     retry(quote(drive_put(z, as_id("1DzbbVSYp0br-MIi1iI0EPMGGy4BRrjnk"))), retries = 5, exponentialDecayBase = 2)
   })
 
-  ## output figures
+  ## output figures + final raster
   gid_results <- as_id("11_VAG1pREuf-9OlFRJPep57yp4iPVgFw")
   filesToUpload <- c(
-    list.files(figsDir, full.names = TRUE)
+    list.files(figsDir, full.names = TRUE) ## TODO: add final raster output
   )
 
   lapply(filesToUpload, function(f) {

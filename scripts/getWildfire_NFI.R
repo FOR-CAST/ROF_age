@@ -26,7 +26,11 @@ getWildfire_NFI <- function(dPath, rasterToMatch) {
 
   wildfire_SA <- postProcessTerra(wildfireYear2, to = rasterToMatch)
 
+  ## TODO: confirm these years -- something is wrong with the final raster
   wildfire_SA[wildfire_SA == 0] <- NA
   wildfire_SA <- wildfire_SA + 1900
+
+  setMinMax(wildfire_SA, force = TRUE)
+
   return(wildfire_SA)
 }
