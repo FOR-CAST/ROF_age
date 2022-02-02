@@ -582,7 +582,6 @@ if (isTRUE(reupload)) {
 
   lapply(filesToUpload, function(f) {
     if (file.exists(f))
-      retry(quote(drive_put(file.path("outputs", studyAreaName, f), gid_results)),
-            retries = 5, exponentialDecayBase = 2)
+      retry(quote(drive_put(f, gid_results)), retries = 5, exponentialDecayBase = 2)
   })
 }
