@@ -54,6 +54,7 @@ if (identical(Sys.info()[["user"]], "achubaty")) {
 
 ## NOTE: many GIS etc. ops require large amounts of memory (>80 GB)
 lowMemory <- if (grepl("for-cast[.]ca", Sys.info()[["nodename"]])) FALSE else TRUE
+reupload <- if (grepl("for-cast[.]ca", Sys.info()[["nodename"]])) TRUE else FALSE
 targetProj <- paste(
   "+proj=lcc +lat_1=49 +lat_2=77 +lat_0=0 +lon_0=-95",
   "+x_0=0 +y_0=0 +units=m +no_defs +ellps=GRS80 +towgs84=0,0,0"
@@ -170,14 +171,22 @@ summary(DatasetAge0$ecozone)
 summary(DatasetAge0$LCC)
 summary(droplevels(DatasetAge0$ecozone))
 colnames(DatasetAge0)
+
+png(file.path(figsDir, "hist_DatasetAge0_TSLF.png"))
 hist(DatasetAge0$TSLF)
+dev.off()
+
 DatasetAge0 <- subset(DatasetAge0, TSLF < 600) # we avoid prehistoric wood
 summary(DatasetAge0$ecozone)
 levels(DatasetAge0$ecozone)[levels(DatasetAge0$ecozone) == "TAIGA SHIELD EAST"] <- "TAIGA SHIELD"
 levels(DatasetAge0$ecozone)[levels(DatasetAge0$ecozone) == "TAIGA SHIELD WEST"] <- "TAIGA SHIELD"
 
 DatasetAge1 <- DatasetAge0
+
+png(file.path(figsDir, "hist_DatasetAge1_total_BA.png"))
 hist(DatasetAge1$total_BA)
+dev.off()
+
 summary(DatasetAge1$ecozone)
 DatasetAge1 <- DatasetAge1[which(!(DatasetAge1$ecozone %in% c(
   "TAIGA CORDILLERA", "PACIFIC MARITIME", "MIXEDWOOD PLAIN",
@@ -185,7 +194,11 @@ DatasetAge1 <- DatasetAge1[which(!(DatasetAge1$ecozone %in% c(
 ))), ]
 summary(DatasetAge1$LCC)
 DatasetAge1 <- subset(DatasetAge1, !(LCC %in% c("0", "3", "4", "7", "9", "15", "16", "17", "18")))
+
+png(file.path(figsDir, "hist_DatasetAge1_TSLF.png"))
 hist(DatasetAge1$TSLF)
+dev.off()
+
 levels(DatasetAge1$LCC)[grepl("11|12|13", levels(DatasetAge1$LCC))] <- "11_12_13"
 DatasetAge1$Type <- as.factor(DatasetAge1$Type)
 summary(DatasetAge1$Type)
@@ -220,41 +233,57 @@ studyArea_ROF <- prepInputs(
 )
 compareCRS(targetProj, studyArea_ROF, DatasetAge1_sp)
 
+prebuiltRasterFilenames <- list(
+  LCC2015 = "CAN_LC_2015_CAL_Clip1.tif",
+  ba = "CA_forest_basal_area_2015_ROF.tif",
+  Tave = "Normal_1981_2010_Tave_sm_ROF.tif",
+  wildfires = "wildfire_ROF.tif"
+)
+prebuiltRasterDirNames <- lapply(prebuiltRasterFilenames, function(f) {
+  checkPath(file.path(inputDir, tools::file_path_sans_ext(f)), create = TRUE)
+})
+prebuiltRasterURLs <- list(
+  LCC2015 = "https://drive.google.com/file/d/13bHz8XEW5sIBZ4Mn-4_hxg-iaWmDEnlO/",
+  ba = "https://drive.google.com/file/d/1aKCclzcKk8Aowj0kTK6oV36lAhJhIxJM/",
+  Tave = "https://drive.google.com/file/d/1HT0swKK22D59n47RbbBJAyC1qGlAGb-E/",
+  wildfires = "https://drive.google.com/file/d/1WcxdP-wyHBCnBO7xYGZ0qKgmvqvOzmxp/"
+)
+stopifnot(identical(names(prebuiltRasterFilenames), names(prebuiltRasterURLs)))
+
 source("scripts/prepInputsTerra.R")
+source("scripts/getWildfire_NFI.R")
 
 if (lowMemory) {
   ## use rasters pre-cropped to ROF
-  LCC2015 <- prepInputs(
-    url = "https://drive.google.com/file/d/13bHz8XEW5sIBZ4Mn-4_hxg-iaWmDEnlO/",
-    targetFile = "CAN_LC_2015_CAL_Clip1.tif", alsoExtract = "similar",
-    fun = "raster::raster", ## TODO: use terra
-    destinationPath = inputDir
+  LCC2015 <- Cache(
+    prepInputs_Terra,
+    url = prebuiltRasterURLs$LCC2015,
+    targetFile = prebuiltRasterFilenames$LCC2015,
+    destinationPath = inputDir,
+    studyArea = studyArea_ROF
   )
 
-  ## NOTE: reprojecting rasters in memory requires too much RAM to not use GDAL (see options above)
+  ## TODO: reupload these prebuilt rasters after making them in !lowMemory branch below
   ba <- Cache(
-    prepInputs,
-    url = "https://drive.google.com/file/d/1aKCclzcKk8Aowj0kTK6oV36lAhJhIxJM/",
-    targetFile = "CA_forest_basal_area_2015_ROF.tif",
-    fun = "raster::raster", ## TODO: use terra
+    prepInputs_Terra,
+    url = prebuiltRasterURLs$ba,
+    targetFile = prebuiltRasterFilenames$ba,
     destinationPath = inputDir,
     rasterToMatch = LCC2015
   )
 
   Tave <- Cache(
-    prepInputs,
-    url = "https://drive.google.com/file/d/1HT0swKK22D59n47RbbBJAyC1qGlAGb-E/",
-    targetFile = "Normal_1981_2010_Tave_sm_ROF.tif",
-    fun = "raster::raster", ## TODO: use terra
+    prepInputs_Terra,
+    url = prebuiltRasterURLs$Tave,
+    targetFile = prebuiltRasterFilenames$Tave,
     destinationPath = inputDir,
     rasterToMatch = LCC2015
   )
 
-  ecozone <- Cache(
-    prepInputs,
-    url = "https://drive.google.com/file/d/1IwRayjkjOGFjIUDfCYyPsKmgx9MRGqKA/",
-    targetFile = "ecozones_PolygonToRaster21_C1.tif", alsoExtract = "similar",
-    fun = "raster::raster", ## TODO: use terra
+  wildfires <- Cache(
+    prepInputs_Terra,
+    url = prebuiltRasterURLs$wildfires,
+    targetFile = prebuiltRasterFilenames$wildfires,
     destinationPath = inputDir,
     rasterToMatch = LCC2015
   )
@@ -262,34 +291,35 @@ if (lowMemory) {
   ## use national layers
 
   ## from https://open.canada.ca/data/en/dataset/4e615eae-b90c-420b-adee-2ca35896caf6
+  f_lcc <- file.path(inputDir, "CAN_LC_2015_CAL.tif")
   LCC2015 <- Cache(
     prepInputs_Terra,
     url = paste0(
       "https://ftp.maps.canada.ca/pub/nrcan_rncan/Land-cover_Couverture-du-sol/",
       "canada-landcover_canada-couverture-du-sol/CanadaLandcover2015.zip"
     ), ## TODO: use 2010?
-    targetFile = "CAN_LC_2015_CAL.tif",
-    destinationPath = inputDir,
+    targetFile = basename(f_lcc),
+    destinationPath = dirname(f_lcc),
     studyArea = studyArea_ROF
   )
-  #LCC2015 <- raster::raster(LCC2015)
 
   ## from https://open.canada.ca/data/en/dataset/4c0d9755-9347-42f2-bb1b-f4d2ff673254
+  f_ba <- file.path(inputDir, "CA_forest_basal_area_2015_NN.tif")
   ba <- Cache(
     prepInputs_Terra,
-    url = "https://opendata.nfis.org/downloads/forest_change/CA_forest_basal_area_2015_NN.zip",
+    url = "https://opendata.nfis.org/downloads/forest_change/CA_forest_basal_area_2015_NN.zip", ## 113 GB !
     # url = "https://drive.google.com/file/d/1Vyqb3Q-2T45v963RlFb6EApqyPSMKwKO/", ## backup version
-    targetFile = "CA_forest_basal_area_2015_NN.tif",
-    destinationPath = inputDir,
+    targetFile = basename(f_ba),
+    destinationPath = dirname(f_ba),
     rasterToMatch = LCC2015
   )
-  #ba <- raster::raster(ba)
 
+  f_tave <- file.path(inputDir, "Normal_1981_2010_Tave_sm.tif")
   Tave <- Cache(
     prepInputs_Terra,
     url = "https://s3-us-west-2.amazonaws.com/www.cacpd.org/CMIP6/normals/Normal_1981_2010_bioclim.zip",
-    targetFile = "Normal_1981_2010_Tave_sm.tif",
-    destinationPath = inputDir,
+    targetFile = basename(f_tave),
+    destinationPath = dirname(f_tave),
     rasterToMatch = LCC2015
   )
 
@@ -310,31 +340,21 @@ if (lowMemory) {
   #   rasterToMatch = LCC2015
   # )
 
-  ecozone_shp <- prepInputs(
-    url = "https://sis.agr.gc.ca/cansis/nsdb/ecostrat/zone/ecozone_shp.zip",
-    targetFile = "ecozones.shp",
-    alsoExtract = "similar",
-    fun = "sf::st_read",
-    destinationPath = inputDir,
-    studyArea = studyArea_ROF,
-    useStudyAreaCRS = TRUE
-  )
-
-  ecozone_shp$ZONE_NAME <- as.factor(ecozone_shp$ZONE_NAME)
-  ecozone <- fasterize::fasterize(ecozone_shp, raster(ba), field = "ZONE_NAME", fun = "sum")
+  wildfires <- Cache(getWildfire_NFI, dPath = inputDir, studyArea = studyArea_ROF)
 }
 
-source("scripts/getWildfire_NFI.R")
-wildfires <- Cache(getWildfire_NFI, dPath = inputDir, studyArea = studyArea_ROF)
+ecozone_shp <- prepInputs(
+  url = "https://sis.agr.gc.ca/cansis/nsdb/ecostrat/zone/ecozone_shp.zip",
+  targetFile = "ecozones.shp",
+  alsoExtract = "similar",
+  fun = "sf::st_read",
+  destinationPath = inputDir,
+  studyArea = studyArea_ROF,
+  useStudyAreaCRS = TRUE
+)
 
-fPath <- file.path(outputDir, "wildfire", "wildfire_ROF.tif")
-zPath <- file.path(outputDir, "wildfire_ROF.zip")
-checkPath(dirname(fPath), create = TRUE)
-terra::writeRaster(wildfires, fPath)
-archive::archive_write_files(zipfile = zPath, files = dirname(fPath))
-# googledrive::drive_put(media = zPath,
-#                        path = as_id("1DzbbVSYp0br-MIi1iI0EPMGGy4BRrjnk"),
-#                        name = basename(zPath))
+ecozone_shp$ZONE_NAME <- as.factor(ecozone_shp$ZONE_NAME)
+ecozone <- fasterize::fasterize(ecozone_shp, raster(ba), field = "ZONE_NAME", fun = "sum")
 
 prevAgeLayer <- prepInputs_Terra(
   url = "https://drive.google.com/file/d/1hKyVbPyM9bR09u465fusa5mU7_cz-iZz/", ## orig 250 m layer
@@ -342,24 +362,23 @@ prevAgeLayer <- prepInputs_Terra(
   destinationPath = inputDir,
   studyArea = studyArea_ROF
 )
-#prevAgeLayer <- raster(prevAgeLayer)
+#plot(prevAgeLayer)
 
-plot(prevAgeLayer)
-
-prevAgeLayer2 <- prepInputs_Terra(
-  url = "https://drive.google.com/file/d/14zxLiW_XVoOeLILi9bqpdTtDzOw4JyuP/", ## Raquels coarser res layer
-  targetFile = "standAgeMap_it_1_ts_2011_ProROF.tif",
-  destinationPath = inputDir,
-  studyArea = studyArea_ROF
-)
-#prevAgeLayer2 <- raster(prevAgeLayer2)
-
-plot(prevAgeLayer2)
+## Raquel's coarser res layer -- ucrrently unused
+if (FALSE) {
+  prevAgeLayer2 <- prepInputs_Terra(
+    url = "https://drive.google.com/file/d/14zxLiW_XVoOeLILi9bqpdTtDzOw4JyuP/",
+    targetFile = "standAgeMap_it_1_ts_2011_ProROF.tif",
+    destinationPath = inputDir,
+    studyArea = studyArea_ROF
+  )
+  #plot(prevAgeLayer2)
+}
 
 ## use different resolution
 LCC_sim <- terra::aggregate(LCC2015, fact = targetRes / 30, fun = modal, dissolve = FALSE)
 res(LCC_sim)
-plot(LCC_sim)
+#plot(LCC_sim)
 
 ## the model
 ## NOTE: need too much RAM to run below with the parameter select=TRUE
@@ -539,3 +558,30 @@ hist(DatasetAgeROF4$PrevAge)
 ## TODO: create a diff layer
 
 gc()
+
+## upload figs to gdrive
+if (isTRUE(reupload)) {
+  ## input rasters (write, zip, then upload)
+  lapply(names(prebuiltRasterFilenames), function(f) {
+    checkPath(prebuiltRasterDirNames[[f]], create = TRUE)
+    terra::writeRaster(get(f, envir = .GlobalEnv),
+                       file.path(prebuiltRasterDirNames[[f]], prebuiltRasterFilenames[[f]]),
+                       overwrite = TRUE)
+    z <- extension(prebuiltRasterDirNames[[f]], "zip")
+    archive::archive_write_dir(z, prebuiltRasterDirNames[[f]])
+
+    retry(quote(drive_put(z, as_id("1DzbbVSYp0br-MIi1iI0EPMGGy4BRrjnk"))), retries = 5, exponentialDecayBase = 2)
+  })
+
+  ## output figures
+  gid_results <- as_id("11_VAG1pREuf-9OlFRJPep57yp4iPVgFw")
+  filesToUpload <- c(
+    list.files(figsDir, full.names = TRUE)
+  )
+
+  lapply(filesToUpload, function(f) {
+    if (file.exists(f))
+      retry(quote(drive_put(file.path("outputs", studyAreaName, f), gid_results)),
+            retries = 5, exponentialDecayBase = 2)
+  })
+}
