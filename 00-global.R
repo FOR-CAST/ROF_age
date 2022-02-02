@@ -340,7 +340,7 @@ if (lowMemory) {
   #   rasterToMatch = LCC2015
   # )
 
-  wildfires <- Cache(getWildfire_NFI, dPath = inputDir, studyArea = studyArea_ROF)
+  wildfires <- Cache(getWildfire_NFI, dPath = inputDir,  rasterToMatch = LCC2015)
 }
 
 ecozone_shp <- prepInputs(

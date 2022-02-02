@@ -9,7 +9,7 @@
 #' @importFrom reproducible preProcess postProcessTerra
 #' @importFrom terra rast
 #' @importFrom raster extension
-getWildfire_NFI <- function(dPath, studyArea) {
+getWildfire_NFI <- function(dPath, rasterToMatch) {
   ## NOTE: use the 250m NFI for now
   NFIurl <- paste0("https://opendata.nfis.org/downloads/forest_change/",
                    "CA_forest_wildfire_year_DNBR_Magnitude_1985_2015.zip")
@@ -24,7 +24,7 @@ getWildfire_NFI <- function(dPath, studyArea) {
   wildfireYear <- terra::rast(fireDL$targetFilePath)
   wildfireYear2 <- wildfireYear$CA_forest_wildfire_year_DNBR_Magnitude_1985_2015_2 ## only need year
 
-  wildfire_SA <- postProcessTerra(wildfireYear2, to = studyArea)
+  wildfire_SA <- postProcessTerra(wildfireYear2, to = rasterToMatch)
 
   wildfire_SA[wildfire_SA == 0] <- NA
   wildfire_SA <- wildfire_SA + 1900
