@@ -454,11 +454,11 @@ DatasetAge1_ROF <- st_intersection(DatasetAge1_sf, studyArea_ROF)
 rasValue0 <- terra::extract(prevAgeLayer, terra::vect(as_Spatial(DatasetAge1_ROF)))
 #rasValue0 <- na.omit(rasValue0)
 
-## TODO: all points within ROF  have age = 107 ??
 DatasetAge2 <- as.data.frame(cbind(
   as.data.frame(DatasetAge1_ROF), coordinates(as_Spatial(DatasetAge1_ROF)), rasValue0
 ))
-colnames(DatasetAge2)[11] <- "PrevAge"
+id <- which(colnames(DatasetAge2) == "standAgeMap2011_ROF")
+colnames(DatasetAge2)[id] <- "PrevAge"
 DatasetAge3 <- na.omit(DatasetAge2)
 DatasetAge3$predictAge <- exp(predict(modage2, DatasetAge3))
 
@@ -496,8 +496,9 @@ Figs23 <- ggpubr::ggarrange(Fig2, Fig3, labels = "AUTO")
 ggsave(file.path(figsDir, "Figs23.png"), Figs23)
 
 ## create new raster at targetRes
+## TODO: Raquel working on this section currently
 LCC_simpoints <- Cache(rasterToPoints, x = raster(LCC_sim), progress = "text")
-LCC_simpointsdf <- as.data.frame(LCC_simpoints) ## TODO: use data.table (NOTE: weird issue with S4 conversion?)
+LCC_simpointsdf <- as.data.frame(LCC_simpoints)
 colnames(LCC_simpointsdf) <- c("coords.x1", "coords.x2", "LCC")
 rasStack <- stack(LCC2015, ba, Tave, ecozone)
 rasValue1 <- raster::extract(rasStack, LCC_simpoints[, -3])
