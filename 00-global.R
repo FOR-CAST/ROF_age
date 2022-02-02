@@ -341,7 +341,6 @@ if (lowMemory) {
   # )
 
   wildfires <- Cache(getWildfire_NFI, dPath = inputDir,  rasterToMatch = LCC2015)
-   ## TODO: confirm min max vaules
 }
 
 ecozone_shp <- prepInputs(
