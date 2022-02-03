@@ -40,13 +40,14 @@ pkgs1 <- c( ## TODO: remove unused packages
 )
 Require(pkgs1, require = FALSE) ## don't load/attach yet, just ensure these get installed
 
+Require("PredictiveEcology/reproducible@terraInProjectInputs (>= 1.2.8.9023)", require = FALSE)
+Require("PredictiveEcology/LandR@development (>= 1.0.7.9002)", require = FALSE)
+
 ## install these if needed, and load/attach:
 pkgs2 <- c(
-  "fasterize", "ggplot2", "googledrive", "mgcv", "raster", "sf", "terra", "tidyr"
+  "fasterize", "ggplot2", "googledrive", "mgcv", "raster", "sf", "terra"
 )
-Require(c(
-  pkgs2, "PredictiveEcology/reproducible@terraInProjectInputs (>= 1.2.8.9023)"
-))
+Require(c(pkgs2, "reproducible"))
 
 if (identical(Sys.info()[["user"]], "achubaty")) {
   drive_auth(email = "achubaty@for-cast.ca")
@@ -85,6 +86,8 @@ opts <- options(
   "reproducible.useGDAL" = "force", ## one of FALSE, TRUE, "force"
   "reproducible.useMemoise" = FALSE
 )
+
+# data from national study plots --------------------------------------------------------------
 
 ## NOTE: data available on Google Drive
 ##   https://drive.google.com/drive/folders/1ZM8i8VZ8BcsxEdxWPE2S-AMO0JvQ9DRI
@@ -211,7 +214,8 @@ DatasetAge1_sf <- st_transform(DatasetAge1_sf, targetProj) ## TODO: use targetCR
 DatasetAge1_sp <- as_Spatial(DatasetAge1_sf)
 DatasetAge1_proj <- as.data.frame(DatasetAge1_sp) ## coords.x1 ~= longitude; coords.x2 ~= latitude
 
-## spatial data
+# get/load spatial data -----------------------------------------------------------------------
+
 canProvs <- raster::getData("GADM", path = inputDir, country = "CAN", level = 1, type = "sf")
 st_crs(canProvs) <- st_crs(canProvs) ## fix "old-style crs" warning from sf
 canProvs <- st_transform(canProvs, crs = targetProj) ## TODO: use targetCRS
@@ -251,7 +255,6 @@ prebuiltRasterURLs <- list(
 stopifnot(identical(names(prebuiltRasterFilenames), names(prebuiltRasterURLs)))
 
 source("scripts/prepInputsTerra.R")
-source("scripts/getWildfire_NFI.R")
 
 if (lowMemory) {
   ## use rasters pre-cropped to ROF
@@ -340,8 +343,14 @@ if (lowMemory) {
   #   rasterToMatch = LCC2015
   # )
 
-  wildfires <- Cache(getWildfire_NFI, dPath = inputDir,  rasterToMatch = LCC2015)
+  wildfires <- Cache(LandR::getWildfire_NFI, dPath = inputDir, rasterToMatch = LCC2015)
 }
+
+## create time since fire (TSF) layer
+dataYear <- terra::rast(wildfires) ## template using `wildfires`
+dataYear[] <- 2015L ## TODO: adjust this to match the years of the relevant data
+
+tsf <- dataYear - wildfires
 
 ecozone_shp <- prepInputs(
   url = "https://sis.agr.gc.ca/cansis/nsdb/ecostrat/zone/ecozone_shp.zip",
@@ -380,7 +389,8 @@ LCC_sim <- terra::aggregate(LCC2015, fact = targetRes / 30, fun = modal, dissolv
 res(LCC_sim)
 #plot(LCC_sim)
 
-## the model
+# the stand age model -------------------------------------------------------------------------
+
 ## NOTE: need too much RAM to run below with the parameter select=TRUE
 modage2 <- bam(TSLF ~ s(total_BA) +
                  s(Tave_sm) +
@@ -555,8 +565,6 @@ DatasetAgeROF4 <- as.data.frame(cbind(LCC_simpoints[, -3], rasValue2))
 colnames(DatasetAgeROF4)[3] <- "PrevAge"
 DatasetAgeROF4 <- na.omit(DatasetAgeROF4)
 hist(DatasetAgeROF4$PrevAge)
-
-## TODO: create a diff layer
 
 gc()
 
