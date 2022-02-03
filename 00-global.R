@@ -376,14 +376,16 @@ ecozone <- Cache(
   targetFile = "ecozones_PolygonToRaster21_C1.tif", alsoExtract = "similar",
   fun = "raster::raster", ## TODO: use terra
   destinationPath = inputDir,
-  rasterToMatch = raster(LCC2015)
+  rasterToMatch = raster(LCC2015),
+  targetCRS = targetProj
 )
 
-prevAgeLayer <- prepInputs_Terra(
+prevAgeLayer <- Cache(
+  prepInputs,
   url = "https://drive.google.com/file/d/1hKyVbPyM9bR09u465fusa5mU7_cz-iZz/", ## orig 250 m layer
   targetFile = "standAgeMap2011_ROF.tif",
   destinationPath = inputDir,
-  rasterToMatch = LCC2015
+  rasterToMatch = raster(LCC2015)
 )
 #plot(prevAgeLayer)
 
