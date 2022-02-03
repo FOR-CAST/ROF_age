@@ -28,13 +28,13 @@ Require("PredictiveEcology/SpaDES.install@development")
 
 if (!all(.spatialPkgs %in% rownames(installed.packages()))) {
   installSpatialPackages(.spatialPkgs)
-  #install.packages(c("raster", "terra"), repos = "https://rspatial.r-universe.dev")
+  install.packages(c("raster", "terra"), repos = "https://rspatial.r-universe.dev")# this is the only way to install terra, but if we call it again in Pkgs 2 it instalss the previous version
   sf::sf_extSoftVersion() ## want GEOS 3.9.0, GDAL 3.2.1, PROJ 7.2.1
 }
 
 pkgs1 <- c( ## TODO: remove unused packages
   "data.table", "DHARMa", "effects", "foreign", "gamlss", "ggpubr",
-  "lme4", "lmerTest",
+  "lme4", "lmerTest","reproducible",
   "dplyr", "readr", "tidyverse", ## TODO: remove these in favour of data.table
   "performance", "qs", "RCurl", "splines", "styler"
 )
@@ -42,11 +42,15 @@ Require(pkgs1, require = FALSE) ## don't load/attach yet, just ensure these get 
 
 ## install these if needed, and load/attach:
 pkgs2 <- c(
-  "fasterize", "ggplot2", "googledrive", "mgcv", "raster", "sf", "terra", "tidyr"
+  "fasterize", "ggplot2", "googledrive", "mgcv", "tidyr"
 )
 Require(c(
   pkgs2, "PredictiveEcology/reproducible@terraInProjectInputs (>= 1.2.8.9023)"
 ))
+
+Require(.spatialPkgs, require = TRUE)
+Require(pkgs1, require = TRUE)
+Require(pkgs2, require = TRUE)
 
 if (identical(Sys.info()[["user"]], "achubaty")) {
   drive_auth(email = "achubaty@for-cast.ca")
@@ -73,7 +77,7 @@ figsDir <- checkPath("figures", create = TRUE)
 ## project options
 raster::rasterOptions(default = TRUE)
 opts <- options(
-  "rasterMaxMemory" = 5e+12,
+  "rasterMaxMemory" = 5e+50,
   "rasterTmpDir" = scratchDir,
   "reproducible.cachePath" = cacheDir,
   "reproducible.cacheSaveFormat" = "qs",
@@ -272,20 +276,29 @@ if (lowMemory) {
     rasterToMatch = LCC2015
   )
 
+  f_tave <- file.path(inputDir, "Normal_1981_2010_Tave_sm.tif")# the clipped version doesn't load #error with the extent
   Tave <- Cache(
     prepInputs_Terra,
-    url = prebuiltRasterURLs$Tave,
-    targetFile = prebuiltRasterFilenames$Tave,
-    destinationPath = inputDir,
+    url = "https://s3-us-west-2.amazonaws.com/www.cacpd.org/CMIP6/normals/Normal_1981_2010_bioclim.zip",
+    targetFile = basename(f_tave),
+    destinationPath = dirname(f_tave),
     rasterToMatch = LCC2015
   )
+# it doesnt' work. Same problem
+  #wildfires <- Cache(
+  #  prepInputs_Terra,
+  # url = prebuiltRasterURLs$wildfires,
+  #  targetFile = prebuiltRasterFilenames$wildfires,
+  #  destinationPath = inputDir,
+  #  rasterToMatch = LCC2015
+  #)
 
-  wildfires <- Cache(
-    prepInputs_Terra,
-    url = prebuiltRasterURLs$wildfires,
-    targetFile = prebuiltRasterFilenames$wildfires,
+  wildfires<- prepInputs(
+    url = "https://drive.google.com/file/d/1WcxdP-wyHBCnBO7xYGZ0qKgmvqvOzmxp/", ## orig 250 m layer
+    targetFile = "wildfire_ROF.tif",
+    fun = "raster::raster", ## TODO: use terra
     destinationPath = inputDir,
-    rasterToMatch = LCC2015
+    studyArea = studyArea_ROF,rasterToMatch = raster(LCC2015)
   )
 } else {
   ## use national layers
@@ -343,18 +356,28 @@ if (lowMemory) {
   wildfires <- Cache(getWildfire_NFI, dPath = inputDir,  rasterToMatch = LCC2015)
 }
 
-ecozone_shp <- prepInputs(
-  url = "https://sis.agr.gc.ca/cansis/nsdb/ecostrat/zone/ecozone_shp.zip",
-  targetFile = "ecozones.shp",
-  alsoExtract = "similar",
-  fun = "sf::st_read",
-  destinationPath = inputDir,
-  studyArea = studyArea_ROF,
-  useStudyAreaCRS = TRUE
-)
+# this doesn't work for me
+#ecozone_shp <- prepInputs(
+#  url = "https://sis.agr.gc.ca/cansis/nsdb/ecostrat/zone/ecozone_shp.zip",
+#  targetFile = "ecozones.shp",
+#  alsoExtract = "similar",
+#  fun = "sf::st_read",
+#  destinationPath = inputDir,
+#  studyArea = studyArea_ROF,
+#  useStudyAreaCRS = TRUE
+#)
 
-ecozone_shp$ZONE_NAME <- as.factor(ecozone_shp$ZONE_NAME)
-ecozone <- fasterize::fasterize(ecozone_shp, raster(ba), field = "ZONE_NAME", fun = "sum")
+#ecozone_shp$ZONE_NAME <- as.factor(ecozone_shp$ZONE_NAME)
+#ecozone <- fasterize::fasterize(ecozone_shp, raster(LCC2015), field = "ZONE_NAME", fun = "sum")
+
+ecozone <- Cache(
+  prepInputs,
+  url = "https://drive.google.com/file/d/1IwRayjkjOGFjIUDfCYyPsKmgx9MRGqKA/",
+  targetFile = "ecozones_PolygonToRaster21_C1.tif", alsoExtract = "similar",
+  fun = "raster::raster", ## TODO: use terra
+  destinationPath = inputDir,
+  rasterToMatch = raster(LCC2015)
+)
 
 prevAgeLayer <- prepInputs_Terra(
   url = "https://drive.google.com/file/d/1hKyVbPyM9bR09u465fusa5mU7_cz-iZz/", ## orig 250 m layer
@@ -363,17 +386,6 @@ prevAgeLayer <- prepInputs_Terra(
   rasterToMatch = LCC2015
 )
 #plot(prevAgeLayer)
-
-## Raquel's coarser res layer -- ucrrently unused
-if (FALSE) {
-  prevAgeLayer2 <- prepInputs_Terra(
-    url = "https://drive.google.com/file/d/14zxLiW_XVoOeLILi9bqpdTtDzOw4JyuP/",
-    targetFile = "standAgeMap_it_1_ts_2011_ProROF.tif",
-    destinationPath = inputDir,
-    rasterToMatch = LCC2015
-  )
-  #plot(prevAgeLayer2)
-}
 
 ## use different resolution
 LCC_sim <- terra::aggregate(LCC2015, fact = targetRes / 30, fun = modal, dissolve = FALSE)
@@ -497,13 +509,14 @@ ggsave(file.path(figsDir, "Figs23.png"), Figs23)
 ## create new raster at targetRes
 ## TODO: Raquel working on this section currently
 LCC_simpoints <- Cache(rasterToPoints, x = raster(LCC_sim), progress = "text")
-LCC_simpointsdf <- as.data.frame(LCC_simpoints)
-colnames(LCC_simpointsdf) <- c("coords.x1", "coords.x2", "LCC")
-rasStack <- stack(LCC2015, ba, Tave, ecozone)
-rasValue1 <- raster::extract(rasStack, LCC_simpoints[, -3])
-DatasetAgeROF <- as.data.frame(cbind(LCC_simpoints[, -3], rasValue1))
+LCC_simpointsdf <- as.data.frame(LCC_simpoints) ## TODO: use data.table (NOTE: weird issue with S4 conversion?)
+colnames(LCC_simpointsdf) <- c("coords.x1", "coords.x2")
+rasStack <- stack(LCC2015, ba, Tave, ecozone,wildfires,prevAgeLayer)
+rasValue1 <- raster::extract(rasStack, LCC_simpoints)
+DatasetAgeROF <- as.data.frame(cbind(LCC_simpoints, rasValue1))
 head(DatasetAgeROF)
-colnames(DatasetAgeROF) <- c("coords.x1", "coords.x2", "LCC", "total_BA", "Tave_sm", "ecozone")
+colnames(DatasetAgeROF) <- c("coords.x1", "coords.x2", "LCC", "total_BA", "Tave_sm", "ecozone","wildfires","prevAge")
+head(DatasetAgeROF)
 
 # here we include the time since last fire for de pixels with recorded information of fire history
 DatasetAgeROF2 <- na.omit(DatasetAgeROF)
