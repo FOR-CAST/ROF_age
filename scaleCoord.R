@@ -443,17 +443,25 @@ DatasetAgeROF2 <- subset(DatasetAgeROF2, total_BA > 0)
 levels(DatasetAgeROF2$LCC)[grepl("11|12|13", levels(DatasetAgeROF2$LCC))] <- "11_12_13"
 
 DatasetAgeROF2$TypeData<-"PredDataset"
-colnames(DatasetAgeROF2$TypeData)
+DatasetAgeROF2$TSLF<-"TSLF"
+colnames(DatasetAgeROF2)
 
 DatasetAge1_proj$TypeData<-"InputDataset"
-colnames(DatasetAge1_proj$TypeData)
+DatasetAge1_proj$wildfires<-"wildfires"
+DatasetAge1_proj$prevAge<-"prevAge"
+colnames(DatasetAge1_proj)
 
+DatasetAge1_proj<-DatasetAge1_proj[,c("coords.x1","coords.x2","LCC","total_BA","Tave_sm",
+                    "ecozone","wildfires","prevAge","TypeData","TSLF")]
+                   
 DataInputPred<-rbind(DatasetAgeROF2,DatasetAge1_proj)# I want to scale the coordinates of both datasets together
 DataInputPred$sccoords.x1<-scale(DataInputPred$coords.x1)
 DataInputPred$sccoords.x2<-scale(DataInputPred$coords.x2)
-
-DatasetAgeROF2<-subset(DatasetAge1_proj,TypeData=="InputDataset")
-DatasetAge1_proj<-subset(DatasetAge1_proj,TypeData=="PredDataset")
+colnames(DataInputPred)
+DatasetAgeROF2<-subset(DataInputPred[,-c(10)],TypeData=="PredDataset")
+DatasetAge1_proj<-subset(DataInputPred[,-c(7,8)],TypeData=="InputDataset")
+str(DatasetAge1_proj)
+DatasetAge1_proj$TSLF<-as.numeric(DatasetAge1_proj$TSLF)
 
 ## the model
 ## NOTE: need too much RAM to run below with the parameter select=TRUE
@@ -468,7 +476,7 @@ modage2 <- bam(TSLF ~ s(total_BA) +
                  # s(total_BA, by = ecozone) +
                  # s(Tave_sm, by = LCC) +
                  # s(Tave_sm, by = ecozone)+
-                 s(coords.x1, coords.x2, bs = "gp", k = 100, m = 2),
+                 s(sccoords.x1, sccoords.x2, bs = "gp", k = 100, m = 2),
                data = DatasetAge1_proj, method = "fREML", family = nb(), drop.intercept = FALSE, discrete = TRUE
 )
 AIC(modage2)
