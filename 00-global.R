@@ -32,7 +32,8 @@ if (!all(.spatialPkgs %in% rownames(installed.packages()))) {
   sf::sf_extSoftVersion() ## want GEOS 3.9.0, GDAL 3.2.1, PROJ 7.2.1
 }
 
-pkgs1 <- c( ## TODO: remove unused packages
+## TODO: remove unused packages
+pkgs1 <- c(
   "data.table", "DHARMa", "effects", "foreign", "gamlss", "ggpubr",
   "lme4", "lmerTest",
   "dplyr", "readr", "tidyverse", ## TODO: remove these in favour of data.table
@@ -45,7 +46,7 @@ Require("PredictiveEcology/LandR@development (>= 1.0.7.9002)", require = FALSE)
 
 ## install these if needed, and load/attach:
 pkgs2 <- c(
-  "fasterize", "ggplot2", "googledrive", "mgcv", "raster", "sf", "terra"
+  "fasterize", "ggplot2", "googledrive", "mgcv", "raster", "sf", "terra" ## TODO: need tidyr but Rstudio is a jerk
 )
 Require(c(pkgs2, "reproducible"))
 
@@ -106,8 +107,8 @@ summary(DatasetAge0$ecozone_combined)
 str(DatasetAge0)
 DatasetAge0 <- subset(DatasetAge0, project_ID != "BurnedNWT")
 DatasetAge0$year_BA <- as.numeric(as.character(DatasetAge0$year_BA))
-DatasetAge0 <- drop_na(DatasetAge0, latitude)
-DatasetAge0 <- drop_na(DatasetAge0, TSLF)
+DatasetAge0 <- tidyr::drop_na(DatasetAge0, latitude)
+DatasetAge0 <- tidyr::drop_na(DatasetAge0, TSLF)
 DatasetAge0 <- subset(DatasetAge0, ecozone_combined != c("ALASKA INT"))
 colnames(DatasetAge0)
 DatasetAge0$Type <- "Synthesis"
@@ -125,7 +126,7 @@ dataSyn$LCC <- as.factor(as.character(dataSyn$LCC))
 summary(dataSyn$LCC)
 dataSyn <- dataSyn[dataSyn$LCC != "0", ]
 droplevels(dataSyn$LCC)
-dataSyn2 <- drop_na(dataSyn, total_BA)
+dataSyn2 <- tidyr::drop_na(dataSyn, total_BA)
 dataSyn2$year_BA <- as.integer(dataSyn2$year_BA)
 
 # NFI, TREESOURCE
@@ -317,31 +318,31 @@ if (lowMemory) {
     rasterToMatch = LCC2015
   )
 
-  f_tave <- file.path(inputDir, "Normal_1981_2010_Tave_sm.tif")
-  Tave <- Cache(
-    prepInputs_Terra,
-    url = "https://s3-us-west-2.amazonaws.com/www.cacpd.org/CMIP6/normals/Normal_1981_2010_bioclim.zip",
-    targetFile = basename(f_tave),
-    destinationPath = dirname(f_tave),
-    rasterToMatch = LCC2015
-  )
-
-  ## TODO: use finer-resolution climate data from ClimateNA desktop app:
-  # ft <- "Normal_1981_2010S/Tave_sm.asc"
-  # fz <- file.path(inputDir, "Normal_1981_2010S.zip")
-  # if (!file.exists(f)) {
-  #   drive_download(as_id("1d5wtRQGjHje6aE5ghDaAp9mzuGFkmWoA"), fz)
-  #   unzip(fz, files = file.path(inputDir, ft))
-  # }
-  #
-  # Tave <- raster(file.path(inputDir, basename(ft)))
-  # crs(Tave) <- "EPSG:4326"
+  ## NOTE: no longer using the 1km product
+  # f_tave <- file.path(inputDir, "Normal_1981_2010_Tave_sm.tif")
   # Tave <- Cache(
-  #   postProcess,
-  #   x = Tave,
-  #   destinationPath = inputDir,
+  #   prepInputs_Terra,
+  #   url = "https://s3-us-west-2.amazonaws.com/www.cacpd.org/CMIP6/normals/Normal_1981_2010_bioclim.zip",
+  #   targetFile = basename(f_tave),
+  #   destinationPath = dirname(f_tave),
   #   rasterToMatch = LCC2015
   # )
+
+  ft <- "Normal_1981_2010S/Tave_sm.asc"
+  fz <- file.path(inputDir, "Normal_1981_2010S.zip")
+  if (!file.exists(ft)) {
+    drive_download(as_id("1d5wtRQGjHje6aE5ghDaAp9mzuGFkmWoA"), fz) ## 3 arcmin output from ClimateNA
+    archive::archive_extract(fz, dir = inputDir, files = ft)
+  }
+
+  Tave <- terra::rast(file.path(inputDir, ft)) / 10 ## originally an integer (and x10)
+  crs(Tave) <- "EPSG:4326"
+  Tave <- setMinMax(Tave)
+  Tave <- postProcessTerra(
+    from = Tave,
+    to = LCC2015,
+    destinationPath = inputDir
+  )
 
   wildfires <- Cache(LandR::getWildfire_NFI, dPath = inputDir, rasterToMatch = LCC2015)
 }
@@ -359,12 +360,13 @@ ecozone_shp <- prepInputs(
   fun = "sf::st_read",
   destinationPath = inputDir,
   studyArea = studyArea_ROF,
-  useStudyAreaCRS = TRUE
+  targetCRS = targetProj
 )
 
 ecozone_shp$ZONE_NAME <- as.factor(ecozone_shp$ZONE_NAME)
-ecozone <- fasterize::fasterize(ecozone_shp, raster(ba), field = "ZONE_NAME", fun = "sum")
+ecozone <- fasterize::fasterize(ecozone_shp, raster(LCC2015), field = "ZONE_NAME", fun = "sum")
 
+## TODO: use prepInputs (terra not working?) here
 prevAgeLayer <- prepInputs_Terra(
   url = "https://drive.google.com/file/d/1hKyVbPyM9bR09u465fusa5mU7_cz-iZz/", ## orig 250 m layer
   targetFile = "standAgeMap2011_ROF.tif",
@@ -373,21 +375,7 @@ prevAgeLayer <- prepInputs_Terra(
 )
 #plot(prevAgeLayer)
 
-## Raquel's coarser res layer -- ucrrently unused
-if (FALSE) {
-  prevAgeLayer2 <- prepInputs_Terra(
-    url = "https://drive.google.com/file/d/14zxLiW_XVoOeLILi9bqpdTtDzOw4JyuP/",
-    targetFile = "standAgeMap_it_1_ts_2011_ProROF.tif",
-    destinationPath = inputDir,
-    rasterToMatch = LCC2015
-  )
-  #plot(prevAgeLayer2)
-}
-
-## use different resolution
-LCC_sim <- terra::aggregate(LCC2015, fact = targetRes / 30, fun = modal, dissolve = FALSE)
-res(LCC_sim)
-#plot(LCC_sim)
+stopifnot(compareCRS(LCC2015, ba, Tave, ecozone, wildfires, prevAgeLayer))
 
 # the stand age model -------------------------------------------------------------------------
 
@@ -508,12 +496,12 @@ ggsave(file.path(figsDir, "Figs23.png"), Figs23)
 ## TODO: Raquel working on this section currently
 LCC_simpoints <- Cache(rasterToPoints, x = raster(LCC_sim), progress = "text")
 LCC_simpointsdf <- as.data.frame(LCC_simpoints)
-colnames(LCC_simpointsdf) <- c("coords.x1", "coords.x2", "LCC")
-rasStack <- stack(LCC2015, ba, Tave, ecozone)
-rasValue1 <- raster::extract(rasStack, LCC_simpoints[, -3])
-DatasetAgeROF <- as.data.frame(cbind(LCC_simpoints[, -3], rasValue1))
+colnames(LCC_simpointsdf) <- c("coords.x1", "coords.x2")
+rasStack <- stack(LCC2015, ba, Tave, ecozone, wildfires, prevAgeLayer) ## TODO: use terra
+rasValue1 <- terra::extract(rasStack, LCC_simpoints)
+DatasetAgeROF <- as.data.frame(cbind(LCC_simpoints, rasValue1))
 head(DatasetAgeROF)
-colnames(DatasetAgeROF) <- c("coords.x1", "coords.x2", "LCC", "total_BA", "Tave_sm", "ecozone")
+colnames(DatasetAgeROF) <- c("coords.x1", "coords.x2", "LCC", "total_BA", "Tave_sm", "ecozone", "wildfires", "prevAge")
 
 # here we include the time since last fire for de pixels with recorded information of fire history
 DatasetAgeROF2 <- na.omit(DatasetAgeROF)
@@ -545,26 +533,29 @@ DatasetAgeROF3 <- subset(DatasetAgeROF2, predictAge < 200)
 hist((DatasetAgeROF3$predictAge))
 
 ## TODO: substitute the predictions by the real time since last fire for the plots with information about FF
-## - waiting on Ian (2022-01-24)
 
-r_obj <- raster(extent(LCC2015), resolution = c(targetRes, targetRes), crs(LCC2015))
+template_raster <- raster(raster(LCC2015)) ## use as template
 
 ## new age raster layer
-rastersim <- rasterize(
+## TODO: use terra equivalent
+ageLayerNew30 <- rasterize(
   x = DatasetAgeROF3[, 1:2], # lon-lat data
-  y = r_obj, # raster object
+  y = template_raster,
   field = DatasetAgeROF3[, 7], # vals to fill raster with
   fun = mean
 )
-plot(rastersim) ## TODO: use ggplot, save to png
+plot(ageLayerNew30) ## TODO: use ggplot, save to png
 
 ## previous Age layer
 plot(prevAgeLayer)
-rasValue2 <- terra::extract(prevAgeLayer, LCC_simpoints[, -3])
-DatasetAgeROF4 <- as.data.frame(cbind(LCC_simpoints[, -3], rasValue2))
+rasValue2 <- terra::extract(prevAgeLayer, LCC_simpoints)
+DatasetAgeROF4 <- as.data.frame(cbind(LCC_simpoints, rasValue2))
 colnames(DatasetAgeROF4)[3] <- "PrevAge"
 DatasetAgeROF4 <- na.omit(DatasetAgeROF4)
 hist(DatasetAgeROF4$PrevAge)
+
+## final layer for simulations:
+ageLayerNew <- terra::aggregate(ageLayerNew30, fact = targetRes / 30, fun = modal, dissolve = FALSE)
 
 gc()
 
