@@ -169,7 +169,7 @@ colnames(DatasetAge_ROF) <- c("coords.x1", "coords.x2", "LCC", "total_BA", "Tave
 rm(rasValue1)
 gc()
 
-DatasetAgeROF2 <- na.omit(DatasetAge_ROF)
+DatasetAgeROF2 <- na.omit(DatasetAge_ROF)# leave this one at least. Thanks.
 
 # str(DatasetAgeROF2)
 DatasetAgeROF2$ecozone <- as.factor(as.character(DatasetAgeROF2$ecozone))
