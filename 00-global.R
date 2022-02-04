@@ -136,10 +136,11 @@ fo <- file.path(outputDir, "covariate_layers_ROF", "covariate_layers_ROF.tif")
 fz <- extension(dirname(fo), "zip")
 checkPath(dirname(fo), create = TRUE)
 
+## TODO: tweak/test this and move file upload to section with al other uploads
 if (!file.exists(fo)) {
   if (isTRUE(reupload)) {
     ## TODO: Cache this once reproducible better handles terra objs
-    rasStack <- terra::rast(list(LCC2015, ba, Tave, ecozones, wildfires, prevAgeLayer))
+    rasStack <- terra::rast(list(LCC2015, ba, Tave, ecozones, tsf, prevAgeLayer)) ## TODO: using tsf, not wildfires; update below
 
     terra::writeRaster(rasStack, fo)
     archive::archive_write_dir(fz, dirname(fo))
@@ -150,36 +151,36 @@ if (!file.exists(fo)) {
   }
 }
 
-## TODO: Alex resume (HERE)
+## TODO: there's got to be a faster/lower-memory way to do this: #19
+
 ##rasStack <- terra::rast(fo) ## ensure loaded from file and not in memory
 ##rasValue1 <- terra::extract(rasStack, LCC_points) ## TODO: 280+ GB RAM used !!
 rasStack <- raster::stack(fo) ## ensure loaded from file and not in memory
-rasValue1 <- raster::extract(rasStack, LCC_points)
+rasValue1 <- raster::extract(rasStack, LCC_points) ## 100+ GB
 rm(rasStack)
 gc()
 
+## TODO: note the NaN values in rasValue1 -- are these 'correct', or an error?
+
 DatasetAge_ROF <- as.data.frame(cbind(LCC_points, rasValue1))
 # head(DatasetAge_ROF)
-colnames(DatasetAge_ROF) <- c("coords.x1", "coords.x2", "LCC", "total_BA", "Tave_sm", "ecozone", "wildfires", "prevAge")
+colnames(DatasetAge_ROF) <- c("coords.x1", "coords.x2", "LCC", "total_BA", "Tave_sm", "ecozone", "timesincefire", "prevAge")
 # head(DatasetAge_ROF)
 rm(rasValue1)
 gc()
 
-# here we include the time since last fire for de pixels with recorded information of fire history
-DatasetAgeROF2 <- na.omit(DatasetAgeROF)
-str(DatasetAgeROF2)
-# DatasetAgeROF2$year_BA <- 2015
-# DatasetAgeROF2$year_BA<-as.integer(DatasetAgeROF2$year_BA)
+DatasetAgeROF2 <- na.omit(DatasetAge_ROF)
+# str(DatasetAgeROF2)
 DatasetAgeROF2$ecozone <- as.factor(as.character(DatasetAgeROF2$ecozone))
-summary(DatasetAgeROF2$ecozone)
+# summary(DatasetAgeROF2$ecozone)
 levels(DatasetAgeROF2$ecozone)[levels(DatasetAgeROF2$ecozone) == "10"] <- "BOREAL SHIELD"
 levels(DatasetAgeROF2$ecozone)[levels(DatasetAgeROF2$ecozone) == "11"] <- "HUDSON PLAIN"
-DatasetAgeROF2 <- subset(DatasetAgeROF2, !(ecozone %in% c("3"))) # SOUTHERN ARTIC, IF WE DON'T INCLUDE ECOZONE AS A PREDICTOR WE DON'T NEED TO RUN THIS LINE
+DatasetAgeROF2 <- subset(DatasetAgeROF2, !(ecozone %in% c("3"))) # SOUTHERN ARTIC
 
 DatasetAgeROF2$LCC <- as.factor(as.character(DatasetAgeROF2$LCC))
-summary(DatasetAgeROF2$LCC)
+# summary(DatasetAgeROF2$LCC)
 DatasetAgeROF2 <- subset(DatasetAgeROF2, !(LCC %in% c("0", "3", "4", "7", "9", "15", "16", "17", "18")))
-summary(DatasetAgeROF2$LCC)
+# summary(DatasetAgeROF2$LCC)
 DatasetAgeROF2 <- subset(DatasetAgeROF2, Tave_sm > 0)
 DatasetAgeROF2 <- subset(DatasetAgeROF2, total_BA > 0)
 levels(DatasetAgeROF2$LCC)[grepl("11|12|13", levels(DatasetAgeROF2$LCC))] <- "11_12_13"
@@ -204,12 +205,12 @@ DataInputPred$sccoords.x2 <- scale(DataInputPred$coords.x2)
 
 DatasetAgeROF2 <- subset(DataInputPred[, -c(10)], TypeData == "PredDataset") ## TODO: don't index manually
 DatasetAge1_proj <- subset(DataInputPred[, -c(7, 8)], TypeData == "InputDataset") ## TODO: don't index manually
-str(DatasetAge1_proj)
-DatasetAge1_proj$TSLF <- as.numeric(DatasetAge1_proj$TSLF)
+# str(DatasetAge1_proj)
+DatasetAge1_proj$TSLF <- as.numeric(DatasetAge1_proj$TSLF) ## TODO: why numeric? reqd for model below?
 
-## the model
+## the model -----------------------------------------------------------------------------------
+
 ## NOTE: need too much RAM to run below with the parameter select=TRUE
-
 modage2 <- bam(TSLF ~ s(total_BA) +
                  s(Tave_sm) +
                  LCC +
@@ -223,8 +224,8 @@ modage2 <- bam(TSLF ~ s(total_BA) +
                  s(sccoords.x1, sccoords.x2, bs = "gp", k = 100, m = 2),
                data = DatasetAge1_proj, method = "fREML", family = nb(), drop.intercept = FALSE, discrete = TRUE
 )
-AIC(modage2)
-summary(modage2)
+AIC(modage2)  ## TODO: write to file
+summary(modage2) ## TODO: write to file
 
 png(file.path(figsDir, "modage2.png"), width = 1200, height = 600, pointsize = 12)
 par(mfrow = c(2, 2), mar = c(4, 4, 2, 1))
@@ -310,11 +311,12 @@ Fig3 <- ggplot(
 Figs23 <- ggpubr::ggarrange(Fig2, Fig3, labels = "AUTO")
 ggsave(file.path(figsDir, "Figs23.png"), Figs23)
 
-## ROF predictions
-hist(DatasetAgeROF2$wildfires)
-unique(DatasetAgeROF2$wildfires)
+# hist(DatasetAgeROF2$wildfires)
+# unique(DatasetAgeROF2$wildfires)
 DatasetAgeROF2$wildfires <- ifelse(DatasetAgeROF2$wildfires < 1970, NA, DatasetAgeROF2$wildfires)
 DatasetAgeROF2$wildfires <- 2015 - DatasetAgeROF2$wildfires ## TODO: use `dataYear` layer?
+
+## predictions for ROF -------------------------------------------------------------------------
 
 DatasetAgeROF2$predictAge <- exp(predict(modage2, DatasetAgeROF2))
 DatasetAgeROF2$predictAge <- round(DatasetAgeROF2$predictAge, 0)
@@ -330,8 +332,6 @@ DatasetAgeROF3$predictAge <- ifelse(!is.na(DatasetAgeROF3$wildfires), DatasetAge
 DatasetAgeROF3$predictAge <- as.numeric(DatasetAgeROF3$predictAge)
 hist((DatasetAgeROF3$predictAge))
 
-## create new age raster layer -----------------------------------------------------------------
-
 ## TODO: use terra equivalents
 template_raster <- raster(raster(LCC2015)) ## use as template
 ageLayerNew30 <- rasterize(
@@ -340,20 +340,39 @@ ageLayerNew30 <- rasterize(
   field = DatasetAgeROF3[, 7], # vals to fill raster with
   fun = mean
 )
-plot(ageLayerNew30) ## TODO: use ggplot, save to png
+## TODO: use ggplot + ggsave
+png(file.path(figsDir, "age_layer_new_no_wildfires.png")) ## TODO: confirm this is without wildfire overlay
+plot(ageLayerNew30)
+dev.off()
 
 ## previous Age layer
+png(file.path(figsDir, "age_layer_orig_250m.png")) ## TODO: confirm this is without wildfire overlay
 plot(prevAgeLayer)
+dev.off()
+
+## TODO: if all you want is a hist of prev age, use layer directly: `hist(prevAgeLayer)`
 rasValue2 <- terra::extract(prevAgeLayer, LCC_points)
 DatasetAgeROF4 <- as.data.frame(cbind(LCC_points, rasValue2))
-colnames(DatasetAgeROF4)[3] <- "PrevAge"
+colnames(DatasetAgeROF4)[3] <- "PrevAge" ## TODO: don't hardcode indices
 DatasetAgeROF4 <- na.omit(DatasetAgeROF4)
-hist(DatasetAgeROF4$PrevAge)
 
-## final layer for simulations:
+png(file.path(figsDir, "hist_prev_age.png"))
+hist(DatasetAgeROF4$PrevAge)
+dev.off()
+
+## final (new) age layer for simulations:
 ageLayerNew <- terra::aggregate(ageLayerNew30, fact = targetRes / 30, fun = modal, dissolve = FALSE)
 
+fn <- sprintf("age_layer_new_%01dm", targetRes)
+fo <- file.path(outputDir, fn, extension(fn, "tif"))
+fz <- extension(dirname(fo), "zip")
+checkPath(dirname(fo), create = TRUE)
+terra::writeRaster(ageLayerNew, fo, overwrite = TRUE)
+archive::archive_write_dir(fz, dirname(fo))
+retry(quote(drive_put(fz, gid_outputs)), retries = 5, exponentialDecayBase = 2)
+
 ## upload files to google drive ----------------------------------------------------------------
+
 if (isTRUE(reupload)) {
   ## input rasters (write, zip, then upload)
   lapply(names(prebuiltRasterFilenames), function(f) {
