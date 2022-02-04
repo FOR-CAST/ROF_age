@@ -276,7 +276,7 @@ if (lowMemory) {
     rasterToMatch = LCC2015
   )
 
-  f_tave <- file.path(inputDir, "Normal_1981_2010_Tave_sm.tif")# the clipped version doesn't load #error with the extent
+  f_tave <- file.path(inputDir, "Normal_1981_2010_Tave_sm.tif")
   Tave <- Cache(
     prepInputs_Terra,
     url = "https://s3-us-west-2.amazonaws.com/www.cacpd.org/CMIP6/normals/Normal_1981_2010_bioclim.zip",
@@ -284,21 +284,13 @@ if (lowMemory) {
     destinationPath = dirname(f_tave),
     rasterToMatch = LCC2015
   )
-# it doesnt' work. Same problem
-  #wildfires <- Cache(
-  #  prepInputs_Terra,
-  # url = prebuiltRasterURLs$wildfires,
-  #  targetFile = prebuiltRasterFilenames$wildfires,
-  #  destinationPath = inputDir,
-  #  rasterToMatch = LCC2015
-  #)
 
-  wildfires<- prepInputs(
-    url = "https://drive.google.com/file/d/1WcxdP-wyHBCnBO7xYGZ0qKgmvqvOzmxp/", ## orig 250 m layer
-    targetFile = "wildfire_ROF.tif",
-    fun = "raster::raster", ## TODO: use terra
+  wildfires <- Cache(
+    prepInputs_Terra,
+   url = prebuiltRasterURLs$wildfires,
+    targetFile = prebuiltRasterFilenames$wildfires,
     destinationPath = inputDir,
-    studyArea = studyArea_ROF,rasterToMatch = raster(LCC2015)
+    rasterToMatch = LCC2015
   )
 } else {
   ## use national layers
@@ -353,22 +345,20 @@ if (lowMemory) {
   #   rasterToMatch = LCC2015
   # )
 
-  wildfires <- Cache(getWildfire_NFI, dPath = inputDir,  rasterToMatch = LCC2015)
+  wildfires <- Cache(getWildfire_NFI, dPath = inputDir, rasterToMatch = LCC2015)
 }
 
-# this doesn't work for me
-#ecozone_shp <- prepInputs(
-#  url = "https://sis.agr.gc.ca/cansis/nsdb/ecostrat/zone/ecozone_shp.zip",
-#  targetFile = "ecozones.shp",
-#  alsoExtract = "similar",
-#  fun = "sf::st_read",
-#  destinationPath = inputDir,
-#  studyArea = studyArea_ROF,
-#  useStudyAreaCRS = TRUE
-#)
+ecozone_shp <- prepInputs(
+  url = "https://sis.agr.gc.ca/cansis/nsdb/ecostrat/zone/ecozone_shp.zip",
+  targetFile = "ecozones.shp",
+  alsoExtract = "similar",
+  fun = "sf::st_read",
+  destinationPath = inputDir,
+  rasterToMatch = LCC2015
+)
 
-#ecozone_shp$ZONE_NAME <- as.factor(ecozone_shp$ZONE_NAME)
-#ecozone <- fasterize::fasterize(ecozone_shp, raster(LCC2015), field = "ZONE_NAME", fun = "sum")
+ecozone_shp$ZONE_NAME <- as.factor(ecozone_shp$ZONE_NAME)
+ecozone <- fasterize::fasterize(ecozone_shp, raster(LCC2015), field = "ZONE_NAME", fun = "sum")
 
 ecozone <- Cache(
   prepInputs,
@@ -409,7 +399,7 @@ DatasetAge2 <- as.data.frame(cbind(
 id <- which(colnames(DatasetAge2) == "standAgeMap2011_ROF")
 colnames(DatasetAge2)[id] <- "PrevAge"
 DatasetAge3 <- na.omit(DatasetAge2)
-DatasetAge3$predictAge <- exp(predict(modage2, DatasetAge3))
+DatasetAge3$predictAge <- exp(predict(modage2, DatasetAge3)) ## TODO: confirm this line
 
 ## ROF Target resolution:300 x 300 m
 LCC_simpoints <- Cache(rasterToPoints, x = raster(LCC_sim), progress = "text")
@@ -442,17 +432,27 @@ DatasetAgeROF2 <- subset(DatasetAgeROF2, total_BA > 0)
 levels(DatasetAgeROF2$LCC)[grepl("11|12|13", levels(DatasetAgeROF2$LCC))] <- "11_12_13"
 
 DatasetAgeROF2$TypeData <- "PredDataset"
-colnames(DatasetAgeROF2$TypeData)
+DatasetAgeROF2$TSLF <- "TSLF"
+colnames(DatasetAgeROF2)
 
 DatasetAge1_proj$TypeData <- "InputDataset"
-colnames(DatasetAge1_proj$TypeData)
+DatasetAge1_proj$wildfires <- "wildfires"
+DatasetAge1_proj$prevAge <- "prevAge"
+colnames(DatasetAge1_proj)
+
+DatasetAge1_proj <- DatasetAge1_proj[, c(
+  "coords.x1", "coords.x2", "LCC", "total_BA", "Tave_sm",
+  "ecozone", "wildfires", "prevAge", "TypeData", "TSLF"
+)]
 
 DataInputPred <- rbind(DatasetAgeROF2, DatasetAge1_proj) # I want to scale the coordinates of both datasets together
 DataInputPred$sccoords.x1 <- scale(DataInputPred$coords.x1)
 DataInputPred$sccoords.x2 <- scale(DataInputPred$coords.x2)
 
-DatasetAgeROF2 <- subset(DatasetAge1_proj, TypeData == "InputDataset")
-DatasetAge1_proj <- subset(DatasetAge1_proj, TypeData == "PredDataset")
+DatasetAgeROF2 <- subset(DataInputPred[, -c(10)], TypeData == "PredDataset") ## TODO: don't index manually
+DatasetAge1_proj <- subset(DataInputPred[, -c(7, 8)], TypeData == "InputDataset") ## TODO: don't index manually
+str(DatasetAge1_proj)
+DatasetAge1_proj$TSLF <- as.numeric(DatasetAge1_proj$TSLF)
 
 ## the model
 ## NOTE: need too much RAM to run below with the parameter select=TRUE
@@ -467,7 +467,7 @@ modage2 <- bam(TSLF ~ s(total_BA) +
                  # s(total_BA, by = ecozone) +
                  # s(Tave_sm, by = LCC) +
                  # s(Tave_sm, by = ecozone)+
-                 s(coords.x1, coords.x2, bs = "gp", k = 100, m = 2),
+                 s(sccoords.x1, sccoords.x2, bs = "gp", k = 100, m = 2),
                data = DatasetAge1_proj, method = "fREML", family = nb(), drop.intercept = FALSE, discrete = TRUE
 )
 AIC(modage2)
