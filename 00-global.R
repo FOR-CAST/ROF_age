@@ -127,7 +127,7 @@ gc()
 
 DatasetAge3_ROF <- na.omit(DatasetAge2_ROF)
 
-## TODO: where is LCC_points used? reduce memory by removing intermediate objects!!
+## TODO: where is LCC_points used? reduce memory by removing intermediate objects!! # RAS: It is used in L132 and 159
 LCC_points <- Cache(rasterToPoints, x = raster(LCC2015), progress = "text") ## requires ~30 GB
 LCC_points <- as.data.frame(LCC_points[, -3]) ## drop LCC column
 colnames(LCC_points) <- c("coords.x1", "coords.x2")
