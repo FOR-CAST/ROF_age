@@ -389,13 +389,74 @@ prevAgeLayer <- Cache(
 )
 #plot(prevAgeLayer)
 
-## use different resolution
-LCC_sim <- terra::aggregate(LCC2015, fact = targetRes / 30, fun = modal, dissolve = FALSE)
-res(LCC_sim)
-#plot(LCC_sim)
+
+# ROF Dataset for predictions -----------------------------------------------------------------
+
+## ROF region
+png(file.path(figsDir, "prevAgeLayer_w_points.png"), width = 1200, height = 600)
+plot(prevAgeLayer)
+plot(as_Spatial(studyArea_ROF), add = TRUE)
+plot(DatasetAge1_sp, col = "blue", add = TRUE)
+dev.off()
+
+DatasetAge1_ROF <- st_intersection(DatasetAge1_sf, studyArea_ROF)
+rasValue0 <- terra::extract(prevAgeLayer, terra::vect(as_Spatial(DatasetAge1_ROF)))
+#rasValue0 <- na.omit(rasValue0)
+
+DatasetAge2 <- as.data.frame(cbind(
+  as.data.frame(DatasetAge1_ROF), coordinates(as_Spatial(DatasetAge1_ROF)), rasValue0
+))
+id <- which(colnames(DatasetAge2) == "standAgeMap2011_ROF")
+colnames(DatasetAge2)[id] <- "PrevAge"
+DatasetAge3 <- na.omit(DatasetAge2)
+DatasetAge3$predictAge <- exp(predict(modage2, DatasetAge3))
+
+## ROF Target resolution:300 x 300 m
+LCC_simpoints <- Cache(rasterToPoints, x = raster(LCC_sim), progress = "text")
+LCC_simpointsdf <- as.data.frame(LCC_simpoints) ## TODO: use data.table (NOTE: weird issue with S4 conversion?)
+colnames(LCC_simpointsdf) <- c("coords.x1", "coords.x2")
+rasStack <- stack(LCC2015, ba, Tave, ecozone, wildfires, prevAgeLayer)
+rasValue1 <- raster::extract(rasStack, LCC_simpoints)
+DatasetAgeROF <- as.data.frame(cbind(LCC_simpoints, rasValue1))
+head(DatasetAgeROF)
+colnames(DatasetAgeROF) <- c("coords.x1", "coords.x2", "LCC", "total_BA", "Tave_sm", "ecozone", "wildfires", "prevAge")
+head(DatasetAgeROF)
+
+# here we include the time since last fire for de pixels with recorded information of fire history
+DatasetAgeROF2 <- na.omit(DatasetAgeROF)
+str(DatasetAgeROF2)
+# DatasetAgeROF2$year_BA <- 2015
+# DatasetAgeROF2$year_BA<-as.integer(DatasetAgeROF2$year_BA)
+DatasetAgeROF2$ecozone <- as.factor(as.character(DatasetAgeROF2$ecozone))
+summary(DatasetAgeROF2$ecozone)
+levels(DatasetAgeROF2$ecozone)[levels(DatasetAgeROF2$ecozone) == "10"] <- "BOREAL SHIELD"
+levels(DatasetAgeROF2$ecozone)[levels(DatasetAgeROF2$ecozone) == "11"] <- "HUDSON PLAIN"
+DatasetAgeROF2 <- subset(DatasetAgeROF2, !(ecozone %in% c("3"))) # SOUTHERN ARTIC, IF WE DON'T INCLUDE ECOZONE AS A PREDICTOR WE DON'T NEED TO RUN THIS LINE
+
+DatasetAgeROF2$LCC <- as.factor(as.character(DatasetAgeROF2$LCC))
+summary(DatasetAgeROF2$LCC)
+DatasetAgeROF2 <- subset(DatasetAgeROF2, !(LCC %in% c("0", "3", "4", "7", "9", "15", "16", "17", "18")))
+summary(DatasetAgeROF2$LCC)
+DatasetAgeROF2 <- subset(DatasetAgeROF2, Tave_sm > 0)
+DatasetAgeROF2 <- subset(DatasetAgeROF2, total_BA > 0)
+levels(DatasetAgeROF2$LCC)[grepl("11|12|13", levels(DatasetAgeROF2$LCC))] <- "11_12_13"
+
+DatasetAgeROF2$TypeData <- "PredDataset"
+colnames(DatasetAgeROF2$TypeData)
+
+DatasetAge1_proj$TypeData <- "InputDataset"
+colnames(DatasetAge1_proj$TypeData)
+
+DataInputPred <- rbind(DatasetAgeROF2, DatasetAge1_proj) # I want to scale the coordinates of both datasets together
+DataInputPred$sccoords.x1 <- scale(DataInputPred$coords.x1)
+DataInputPred$sccoords.x2 <- scale(DataInputPred$coords.x2)
+
+DatasetAgeROF2 <- subset(DatasetAge1_proj, TypeData == "InputDataset")
+DatasetAge1_proj <- subset(DatasetAge1_proj, TypeData == "PredDataset")
 
 ## the model
 ## NOTE: need too much RAM to run below with the parameter select=TRUE
+
 modage2 <- bam(TSLF ~ s(total_BA) +
                  s(Tave_sm) +
                  LCC +
@@ -456,30 +517,16 @@ Fig1 <- ggplot(DatasetAge1_proj, aes(y = TSLF, x = (predictAge))) +
   theme_bw()
 ggsave(file.path(figsDir, "Fig1.png"), Fig1)
 
-## ROF region
-png(file.path(figsDir, "prevAgeLayer_w_points.png"), width = 1200, height = 600)
-plot(prevAgeLayer)
-plot(as_Spatial(studyArea_ROF), add = TRUE)
-plot(DatasetAge1_sp, col = "blue", add = TRUE)
-dev.off()
-
-DatasetAge1_ROF <- st_intersection(DatasetAge1_sf, studyArea_ROF)
-rasValue0 <- terra::extract(prevAgeLayer, terra::vect(as_Spatial(DatasetAge1_ROF)))
-#rasValue0 <- na.omit(rasValue0)
-
-DatasetAge2 <- as.data.frame(cbind(
-  as.data.frame(DatasetAge1_ROF), coordinates(as_Spatial(DatasetAge1_ROF)), rasValue0
-))
-id <- which(colnames(DatasetAge2) == "standAgeMap2011_ROF")
-colnames(DatasetAge2)[id] <- "PrevAge"
-DatasetAge3 <- na.omit(DatasetAge2)
+# Predicted vs Observed for the ground plots within the ROF region
 DatasetAge3$predictAge <- exp(predict(modage2, DatasetAge3))
-
-# Predicted vs Observed for the ROF region--> new Age layer
-cor.test(DatasetAge3[which(DatasetAge3$TSLF > 30 & DatasetAge3$PrevAge > 30), ]$predictAge,
-         DatasetAge3[which(DatasetAge3$TSLF > 30 & DatasetAge3$PrevAge > 30), ]$TSLF)
-Fig2 <- ggplot(DatasetAge3[which(DatasetAge3$TSLF > 30 & DatasetAge3$predictAge > 30), ],
-               aes(y = TSLF, x = (predictAge))) +
+cor.test(
+  DatasetAge3[which(DatasetAge3$TSLF > 30 & DatasetAge3$PrevAge > 30), ]$predictAge,
+  DatasetAge3[which(DatasetAge3$TSLF > 30 & DatasetAge3$PrevAge > 30), ]$TSLF
+)
+Fig2 <- ggplot(
+  DatasetAge3[which(DatasetAge3$TSLF > 30 & DatasetAge3$predictAge > 30), ],
+  aes(y = TSLF, x = (predictAge))
+) +
   geom_point() +
   ggtitle("ROF region -NEW Age layer-") +
   ylab("Observed (Years)") +
@@ -491,10 +538,14 @@ Fig2 <- ggplot(DatasetAge3[which(DatasetAge3$TSLF > 30 & DatasetAge3$predictAge 
   # annotate("text", x = 20, y = 200, label = "r=0.46, p<0.001", hjust = 0, vjust = 0, fontface = 1, size = 4) +
   theme_bw()
 
-cor.test(DatasetAge3[which(DatasetAge3$TSLF > 30 & DatasetAge3$PrevAge > 30), ]$PrevAge,
-         DatasetAge3[which(DatasetAge3$TSLF > 30 & DatasetAge3$PrevAge > 30), ]$TSLF)
-Fig3 <- ggplot(DatasetAge3[which(DatasetAge3$TSLF > 30 & DatasetAge3$PrevAge > 30), ],
-               aes(y = TSLF, x = PrevAge)) +
+cor.test(
+  DatasetAge3[which(DatasetAge3$TSLF > 30 & DatasetAge3$PrevAge > 30), ]$PrevAge,
+  DatasetAge3[which(DatasetAge3$TSLF > 30 & DatasetAge3$PrevAge > 30), ]$TSLF
+)
+Fig3 <- ggplot(
+  DatasetAge3[which(DatasetAge3$TSLF > 30 & DatasetAge3$PrevAge > 30), ],
+  aes(y = TSLF, x = PrevAge)
+) +
   geom_point() +
   ggtitle("ROF region -Previous Age layer-") +
   ylab("Observed (Years)") +
@@ -508,49 +559,26 @@ Fig3 <- ggplot(DatasetAge3[which(DatasetAge3$TSLF > 30 & DatasetAge3$PrevAge > 3
 Figs23 <- ggpubr::ggarrange(Fig2, Fig3, labels = "AUTO")
 ggsave(file.path(figsDir, "Figs23.png"), Figs23)
 
-## create new raster at targetRes
-## TODO: Raquel working on this section currently
-LCC_simpoints <- Cache(rasterToPoints, x = raster(LCC_sim), progress = "text")
-LCC_simpointsdf <- as.data.frame(LCC_simpoints) ## TODO: use data.table (NOTE: weird issue with S4 conversion?)
-colnames(LCC_simpointsdf) <- c("coords.x1", "coords.x2")
-rasStack <- stack(LCC2015, ba, Tave, ecozone,wildfires,prevAgeLayer)
-rasValue1 <- raster::extract(rasStack, LCC_simpoints)
-DatasetAgeROF <- as.data.frame(cbind(LCC_simpoints, rasValue1))
-head(DatasetAgeROF)
-colnames(DatasetAgeROF) <- c("coords.x1", "coords.x2", "LCC", "total_BA", "Tave_sm", "ecozone","wildfires","prevAge")
-head(DatasetAgeROF)
+# ROF predictions
+hist(DatasetAgeROF2$wildfires)
+unique(DatasetAgeROF2$wildfires)
+DatasetAgeROF2$wildfires <- ifelse(DatasetAgeROF2$wildfires < 1970, NA, DatasetAgeROF2$wildfires)
+DatasetAgeROF2$wildfires <- 2015 - DatasetAgeROF2$wildfires
 
-# here we include the time since last fire for de pixels with recorded information of fire history
-DatasetAgeROF2 <- na.omit(DatasetAgeROF)
-str(DatasetAgeROF2)
-# DatasetAgeROF2$year_BA <- 2015
-# DatasetAgeROF2$year_BA<-as.integer(DatasetAgeROF2$year_BA)
-DatasetAgeROF2$ecozone <- as.factor(as.character(DatasetAgeROF2$ecozone))
-summary(DatasetAgeROF2$ecozone)
-levels(DatasetAgeROF2$ecozone)[levels(DatasetAgeROF2$ecozone) == "10"] <- "BOREAL SHIELD"
-levels(DatasetAgeROF2$ecozone)[levels(DatasetAgeROF2$ecozone) == "11"] <- "HUDSON PLAIN"
-DatasetAgeROF2 <- subset(DatasetAgeROF2, !(ecozone %in% c("3"))) # SOUTHERN ARTIC, IF WE DON'T INCLUDE ECOZONE AS A PREDICTOR WE DON'T NEED TO RUN THIS LINE
-
-DatasetAgeROF2$LCC <- as.factor(as.character(DatasetAgeROF2$LCC))
-summary(DatasetAgeROF2$LCC)
-DatasetAgeROF2 <- subset(DatasetAgeROF2, !(LCC %in% c("0", "3", "4", "7", "9", "15", "16", "17", "18")))
-summary(DatasetAgeROF2$LCC)
-DatasetAgeROF2 <- subset(DatasetAgeROF2, Tave_sm > 0)
-DatasetAgeROF2 <- subset(DatasetAgeROF2, total_BA > 0)
-levels(DatasetAgeROF2$LCC)[grepl("11|12|13", levels(DatasetAgeROF2$LCC))] <- "11_12_13"
-
-DatasetAgeROF2$predictAge <- exp(predict(modage2, DatasetAgeROF2)) # ,exclude=c('longitude','latitude')
-## TODO: subset the fire pixels with the ages from the TSF map
+DatasetAgeROF2$predictAge <- exp(predict(modage2, DatasetAgeROF2))
 DatasetAgeROF2$predictAge <- round(DatasetAgeROF2$predictAge, 0)
+hist(DatasetAgeROF2$predictAge)
 head(DatasetAgeROF2$predictAge)
 DatasetAgeROF2$predictAge[!is.finite(DatasetAgeROF2$predictAge)] <- NA
-range(na.omit(DatasetAgeROF2$predictAge))
-hist((DatasetAgeROF2$predictAge))
-DatasetAgeROF3 <- subset(DatasetAgeROF2, predictAge < 200)
+DatasetAgeROF3 <- subset(DatasetAgeROF2, predictAge < 300 & predictAge > 0)
+range(na.omit(DatasetAgeROF3$predictAge))
 hist((DatasetAgeROF3$predictAge))
 
 ## TODO: substitute the predictions by the real time since last fire for the plots with information about FF
 ## - waiting on Ian (2022-01-24)
+DatasetAgeROF3$predictAge <- ifelse(!is.na(DatasetAgeROF3$wildfires), DatasetAgeROF3$wildfires, DatasetAgeROF3$predictAge)
+DatasetAgeROF3$predictAge <- as.numeric(DatasetAgeROF3$predictAge)
+hist((DatasetAgeROF3$predictAge))
 
 r_obj <- raster(extent(LCC2015), resolution = c(targetRes, targetRes), crs(LCC2015))
 
@@ -558,18 +586,15 @@ r_obj <- raster(extent(LCC2015), resolution = c(targetRes, targetRes), crs(LCC20
 rastersim <- rasterize(
   x = DatasetAgeROF3[, 1:2], # lon-lat data
   y = r_obj, # raster object
-  field = DatasetAgeROF3[, 7], # vals to fill raster with
+  field = DatasetAgeROF3[, 11], # vals to fill raster with ## TODO: don't hardcode indices
   fun = mean
 )
-plot(rastersim) ## TODO: use ggplot, save to png
+## TODO: plot to png file
+plot(rastersim, col = rev(mycol), breaks = c(0, 50, 100, 150, 300))
+plot(wildfires)
 
-## previous Age layer
-plot(prevAgeLayer)
-rasValue2 <- terra::extract(prevAgeLayer, LCC_simpoints[, -3])
-DatasetAgeROF4 <- as.data.frame(cbind(LCC_simpoints[, -3], rasValue2))
-colnames(DatasetAgeROF4)[3] <- "PrevAge"
-DatasetAgeROF4 <- na.omit(DatasetAgeROF4)
-hist(DatasetAgeROF4$PrevAge)
+## TODO: use ggplot, save to png ## TODO: use ggplot, save to png
+
 
 ## TODO: create a diff layer
 
@@ -581,8 +606,9 @@ if (isTRUE(reupload)) {
   lapply(names(prebuiltRasterFilenames), function(f) {
     checkPath(prebuiltRasterDirNames[[f]], create = TRUE)
     terra::writeRaster(get(f, envir = .GlobalEnv),
-                       file.path(prebuiltRasterDirNames[[f]], prebuiltRasterFilenames[[f]]),
-                       overwrite = TRUE)
+      file.path(prebuiltRasterDirNames[[f]], prebuiltRasterFilenames[[f]]),
+      overwrite = TRUE
+    )
     z <- extension(prebuiltRasterDirNames[[f]], "zip")
     archive::archive_write_dir(z, prebuiltRasterDirNames[[f]])
 
@@ -596,7 +622,8 @@ if (isTRUE(reupload)) {
   )
 
   lapply(filesToUpload, function(f) {
-    if (file.exists(f))
+    if (file.exists(f)) {
       retry(quote(drive_put(f, gid_results)), retries = 5, exponentialDecayBase = 2)
+    }
   })
 }
