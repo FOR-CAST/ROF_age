@@ -120,7 +120,7 @@ rasValue0 <- na.omit(rasValue0)
 DatasetAge2_ROF <- as.data.frame(cbind(
   as.data.frame(DatasetAge1_ROF), coordinates(as_Spatial(DatasetAge1_ROF)), rasValue0
 ))
-id <- which(colnames(DatasetAge2_ROF) == "standAgeMap2011_ROF")
+id <- which(colnames(DatasetAge2_ROF) %in% c("standAgeMap2011_ROF", "lyr.1")) ## TODO: why does name change?
 colnames(DatasetAge2_ROF)[id] <- "PrevAge"
 rm(id, rasValue0)
 gc()
@@ -314,14 +314,15 @@ Fig3 <- ggplot(
 Figs23 <- ggpubr::ggarrange(Fig2, Fig3, labels = "AUTO")
 ggsave(file.path(figsDir, "Figs23.png"), Figs23)
 
+DatasetAge_ROF$timesincefire <- as.integer(DatasetAge_ROF$timesincefire)
 # hist(DatasetAge_ROF$timesincefire)
 # unique(DatasetAge_ROF$timesincefire)
 DatasetAge_ROF$timesincefire <- ifelse(DatasetAge_ROF$timesincefire < 1970, NA, DatasetAge_ROF$timesincefire)
-DatasetAge_ROF$timesincefire <- 2015 - DatasetAge_ROF$timesincefire ## TODO: use `dataYear` layer?
+DatasetAge_ROF$timesincefire <- 2015L - DatasetAge_ROF$timesincefire ## TODO: use `dataYear` layer?
 
 ## predictions for ROF -------------------------------------------------------------------------
 
-DatasetAge_ROF$predictAge <- exp(predict(modage2, DatasetAge_ROF))
+DatasetAge_ROF$predictAge <- exp(predict(modage2, DatasetAge_ROF)) ## TODO: ERROR: data too long; Alex resume (HERE)
 DatasetAge_ROF$predictAge <- round(DatasetAge_ROF$predictAge, 0)
 hist(DatasetAge_ROF$predictAge)
 head(DatasetAge_ROF$predictAge)
