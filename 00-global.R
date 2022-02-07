@@ -127,7 +127,7 @@ gc()
 
 DatasetAge3_ROF <- na.omit(DatasetAge2_ROF)
 
-## TODO: where is LCC_points used? reduce memory by removing intermediate objects!! # RAS: It is used in L132 and 159
+## TODO: reduce memory by removing intermediate objects
 LCC_points <- Cache(rasterToPoints, x = raster(LCC2015), progress = "text") ## requires ~30 GB
 LCC_points <- as.data.frame(LCC_points[, -3]) ## drop LCC column
 colnames(LCC_points) <- c("coords.x1", "coords.x2")
@@ -169,7 +169,7 @@ colnames(DatasetAge_ROF) <- c("coords.x1", "coords.x2", "LCC", "total_BA", "Tave
 rm(rasValue1)
 gc()
 
-DatasetAgeROF2 <- na.omit(DatasetAge_ROF)# leave this one at least. Thanks.
+DatasetAgeROF2 <- na.omit(DatasetAge_ROF)
 
 # str(DatasetAgeROF2)
 DatasetAgeROF2$ecozone <- as.factor(as.character(DatasetAgeROF2$ecozone))
@@ -207,7 +207,7 @@ DataInputPred$sccoords.x2 <- scale(DataInputPred$coords.x2)
 DatasetAgeROF2 <- subset(DataInputPred[, -c(10)], TypeData == "PredDataset") ## TODO: don't index manually
 DatasetAge1_proj <- subset(DataInputPred[, -c(7, 8)], TypeData == "InputDataset") ## TODO: don't index manually
 # str(DatasetAge1_proj)
-DatasetAge1_proj$TSLF <- as.numeric(DatasetAge1_proj$TSLF) ## TODO: why numeric? needed for model below? # RAS: Yes
+DatasetAge1_proj$TSLF <- as.numeric(DatasetAge1_proj$TSLF)
 
 ## the model -----------------------------------------------------------------------------------
 
