@@ -209,6 +209,13 @@ DataInputPred$sccoords.x2 <- scale(DataInputPred$coords.x2)
 DatasetAge_ROF <- subset(DataInputPred[, -which(colnames(DataInputPred) == "TSLF")], TypeData == "PredDataset")
 DatasetAge1_proj <- subset(DataInputPred[, -which(colnames(DataInputPred) %in% c("timesincefire", "prevAge"))], TypeData == "InputDataset")
 DatasetAge1_proj$TSLF <- as.numeric(DatasetAge1_proj$TSLF)
+
+DatasetAge_ROF$timesincefire <- as.integer(DatasetAge_ROF$timesincefire) ## TODO: use TSLF or simesincefire ???
+# hist(DatasetAge_ROF$timesincefire)
+# unique(DatasetAge_ROF$timesincefire)
+DatasetAge_ROF$timesincefire <- ifelse(DatasetAge_ROF$timesincefire < 1970, NA, DatasetAge_ROF$timesincefire)
+DatasetAge_ROF$timesincefire <- 2015L - DatasetAge_ROF$timesincefire ## TODO: use `dataYear` layer?
+
 rm(DataInputPred)
 
 ## the model -----------------------------------------------------------------------------------
@@ -275,8 +282,8 @@ ggsave(file.path(figsDir, "Fig1.png"), Fig1)
 ## Predicted vs Observed for the ground plots within the ROF region
 DatasetAge3_ROF$predictAge <- exp(predict(modage2, DatasetAge3_ROF))
 cor.test(
-  DatasetAge3_ROF[which(DatasetAge3_ROF$TSLF > 30 & DatasetAge3_ROF$PrevAge > 30), ]$predictAge, ## TODO: no prevAge column; cor.test fails
-  DatasetAge3_ROF[which(DatasetAge3_ROF$TSLF > 30 & DatasetAge3_ROF$PrevAge > 30), ]$TSLF ## TODO: no prevAge column
+  DatasetAge3_ROF[which(DatasetAge3_ROF$TSLF > 30 & DatasetAge3_ROF$PrevAge > 30), ]$predictAge,
+  DatasetAge3_ROF[which(DatasetAge3_ROF$TSLF > 30 & DatasetAge3_ROF$PrevAge > 30), ]$TSLF
 )
 Fig2 <- ggplot(
   DatasetAge3_ROF[which(DatasetAge3_ROF$TSLF > 30 & DatasetAge3_ROF$predictAge > 30), ],
@@ -314,15 +321,10 @@ Fig3 <- ggplot(
 Figs23 <- ggpubr::ggarrange(Fig2, Fig3, labels = "AUTO")
 ggsave(file.path(figsDir, "Figs23.png"), Figs23)
 
-DatasetAge_ROF$timesincefire <- as.integer(DatasetAge_ROF$timesincefire)
-# hist(DatasetAge_ROF$timesincefire)
-# unique(DatasetAge_ROF$timesincefire)
-DatasetAge_ROF$timesincefire <- ifelse(DatasetAge_ROF$timesincefire < 1970, NA, DatasetAge_ROF$timesincefire)
-DatasetAge_ROF$timesincefire <- 2015L - DatasetAge_ROF$timesincefire ## TODO: use `dataYear` layer?
-
 ## predictions for ROF -------------------------------------------------------------------------
 
-DatasetAge_ROF$predictAge <- exp(predict(modage2, DatasetAge_ROF)) ## TODO: ERROR: data too long; Alex resume (HERE)
+f <- ceiling(1:nrow(DatasetAge_ROF) / (nrow(DatasetAge_ROF) / 40))
+DatasetAge_ROF$predictAge <- unsplit(exp(predict(modage2, split(DatasetAge_ROF, f))), f)
 DatasetAge_ROF$predictAge <- round(DatasetAge_ROF$predictAge, 0)
 hist(DatasetAge_ROF$predictAge)
 head(DatasetAge_ROF$predictAge)

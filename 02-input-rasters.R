@@ -56,12 +56,11 @@ if (lowMemory) {
     rasterToMatch = LCC2015
   )
 
-  f_tave <- file.path(inputDir, "Normal_1981_2010_Tave_sm.tif")
   Tave <- Cache(
     prepInputs_Terra,
-    url = "https://s3-us-west-2.amazonaws.com/www.cacpd.org/CMIP6/normals/Normal_1981_2010_bioclim.zip",
-    targetFile = basename(f_tave),
-    destinationPath = dirname(f_tave),
+    url = prebuiltRasterURLs$Tave,
+    targetFile = prebuiltRasterFilenames$Tave,
+    destinationPath = inputDir,
     rasterToMatch = LCC2015
   )
 
