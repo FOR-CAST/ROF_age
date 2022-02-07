@@ -13,7 +13,7 @@ DatasetAge0$ecozone_combined <- factor(DatasetAge0$ecozone_combined, levels(Data
 DatasetAge0$year_BA <- as.factor(DatasetAge0$year_BA)
 # summary(DatasetAge0$ecozone_combined)
 # str(DatasetAge0)
-DatasetAge0 <- subset(DatasetAge0, project_ID != "BurnedNWT")
+#DatasetAge0 <- subset(DatasetAge0, project_ID != "BurnedNWT")
 DatasetAge0$year_BA <- as.numeric(as.character(DatasetAge0$year_BA))
 DatasetAge0 <- tidyr::drop_na(DatasetAge0, latitude)
 DatasetAge0 <- tidyr::drop_na(DatasetAge0, TSLF)
