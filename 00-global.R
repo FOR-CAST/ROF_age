@@ -169,45 +169,45 @@ colnames(DatasetAge_ROF) <- c("coords.x1", "coords.x2", "LCC", "total_BA", "Tave
 rm(rasValue1)
 gc()
 
-DatasetAgeROF2 <- na.omit(DatasetAge_ROF)
+DatasetAge_ROF <- na.omit(DatasetAge_ROF)
 
-# str(DatasetAgeROF2)
-DatasetAgeROF2$ecozone <- as.factor(as.character(DatasetAgeROF2$ecozone))
-# summary(DatasetAgeROF2$ecozone)
-levels(DatasetAgeROF2$ecozone)[levels(DatasetAgeROF2$ecozone) == "10"] <- "BOREAL SHIELD"
-levels(DatasetAgeROF2$ecozone)[levels(DatasetAgeROF2$ecozone) == "11"] <- "HUDSON PLAIN"
-DatasetAgeROF2 <- subset(DatasetAgeROF2, !(ecozone %in% c("3"))) # SOUTHERN ARTIC
+# str(DatasetAge_ROF)
+DatasetAge_ROF$ecozone <- as.factor(as.character(DatasetAge_ROF$ecozone))
+# summary(DatasetAge_ROF$ecozone)
+levels(DatasetAge_ROF$ecozone)[levels(DatasetAge_ROF$ecozone) == "10"] <- "BOREAL SHIELD"
+levels(DatasetAge_ROF$ecozone)[levels(DatasetAge_ROF$ecozone) == "11"] <- "HUDSON PLAIN"
+DatasetAge_ROF <- subset(DatasetAge_ROF, !(ecozone %in% c("3"))) # SOUTHERN ARTIC
 
-DatasetAgeROF2$LCC <- as.factor(as.character(DatasetAgeROF2$LCC))
-# summary(DatasetAgeROF2$LCC)
-DatasetAgeROF2 <- subset(DatasetAgeROF2, !(LCC %in% c("0", "3", "4", "7", "9", "15", "16", "17", "18")))
-# summary(DatasetAgeROF2$LCC)
-DatasetAgeROF2 <- subset(DatasetAgeROF2, Tave_sm > 0)
-DatasetAgeROF2 <- subset(DatasetAgeROF2, total_BA > 0)
-levels(DatasetAgeROF2$LCC)[grepl("11|12|13", levels(DatasetAgeROF2$LCC))] <- "11_12_13"
+DatasetAge_ROF$LCC <- as.factor(as.character(DatasetAge_ROF$LCC))
+# summary(DatasetAge_ROF$LCC)
+DatasetAge_ROF <- subset(DatasetAge_ROF, !(LCC %in% c("0", "3", "4", "7", "9", "15", "16", "17", "18")))
+# summary(DatasetAge_ROF$LCC)
+DatasetAge_ROF <- subset(DatasetAge_ROF, Tave_sm > 0)
+DatasetAge_ROF <- subset(DatasetAge_ROF, total_BA > 0)
+levels(DatasetAge_ROF$LCC)[grepl("11|12|13", levels(DatasetAge_ROF$LCC))] <- "11_12_13"
 
-DatasetAgeROF2$TypeData <- "PredDataset"
-DatasetAgeROF2$TSLF <- "TSLF"
-colnames(DatasetAgeROF2)
+DatasetAge_ROF$TypeData <- "PredDataset"
+DatasetAge_ROF$TSLF <- "TSLF"
+# colnames(DatasetAge_ROF)
 
 DatasetAge1_proj$TypeData <- "InputDataset"
-DatasetAge1_proj$wildfires <- "wildfires"
+DatasetAge1_proj$timesincefire <- "timesincefire"
 DatasetAge1_proj$prevAge <- "prevAge"
-colnames(DatasetAge1_proj)
+# colnames(DatasetAge1_proj)
 
 DatasetAge1_proj <- DatasetAge1_proj[, c(
   "coords.x1", "coords.x2", "LCC", "total_BA", "Tave_sm",
-  "ecozone", "wildfires", "prevAge", "TypeData", "TSLF"
+  "ecozone", "timesincefire", "prevAge", "TypeData", "TSLF"
 )]
 
-DataInputPred <- rbind(DatasetAgeROF2, DatasetAge1_proj) # I want to scale the coordinates of both datasets together
+DataInputPred <- rbind(DatasetAge_ROF, DatasetAge1_proj)
 DataInputPred$sccoords.x1 <- scale(DataInputPred$coords.x1)
 DataInputPred$sccoords.x2 <- scale(DataInputPred$coords.x2)
 
-DatasetAgeROF2 <- subset(DataInputPred[, -c(10)], TypeData == "PredDataset") ## TODO: don't index manually
-DatasetAge1_proj <- subset(DataInputPred[, -c(7, 8)], TypeData == "InputDataset") ## TODO: don't index manually
-# str(DatasetAge1_proj)
+DatasetAge_ROF <- subset(DataInputPred[, -which(colnames(DataInputPred) == "TSLF")], TypeData == "PredDataset")
+DatasetAge1_proj <- subset(DataInputPred[, -which(colnames(DataInputPred) %in% c("timesincefire", "prevAge"))], TypeData == "InputDataset")
 DatasetAge1_proj$TSLF <- as.numeric(DatasetAge1_proj$TSLF)
+rm(DataInputPred)
 
 ## the model -----------------------------------------------------------------------------------
 
@@ -224,7 +224,7 @@ modage2 <- bam(TSLF ~ s(total_BA) +
                  # s(Tave_sm, by = ecozone)+
                  s(sccoords.x1, sccoords.x2, bs = "gp", k = 100, m = 2),
                data = DatasetAge1_proj, method = "fREML", family = nb(), drop.intercept = FALSE, discrete = TRUE
-)
+) ## TODO: NaNs produced
 AIC(modage2)  ## TODO: write to file
 summary(modage2) ## TODO: write to file
 
@@ -270,8 +270,8 @@ Fig1 <- ggplot(DatasetAge1_proj, aes(y = TSLF, x = (predictAge))) +
   theme_bw()
 ggsave(file.path(figsDir, "Fig1.png"), Fig1)
 
-## Predicted vs Observed for the ground plots within the ROF region
-DatasetAge3_ROF$predictAge <- exp(predict(modage2, DatasetAge3_ROF))
+## Predicted vs Observed for the ground plots within the ROF region ## Alex resume (HERE)
+DatasetAge3_ROF$predictAge <- exp(predict(modage2, DatasetAge3_ROF)) ## TODO: no scaled coords
 cor.test(
   DatasetAge3_ROF[which(DatasetAge3_ROF$TSLF > 30 & DatasetAge3_ROF$PrevAge > 30), ]$predictAge,
   DatasetAge3_ROF[which(DatasetAge3_ROF$TSLF > 30 & DatasetAge3_ROF$PrevAge > 30), ]$TSLF
@@ -312,24 +312,24 @@ Fig3 <- ggplot(
 Figs23 <- ggpubr::ggarrange(Fig2, Fig3, labels = "AUTO")
 ggsave(file.path(figsDir, "Figs23.png"), Figs23)
 
-# hist(DatasetAgeROF2$wildfires)
-# unique(DatasetAgeROF2$wildfires)
-DatasetAgeROF2$wildfires <- ifelse(DatasetAgeROF2$wildfires < 1970, NA, DatasetAgeROF2$wildfires)
-DatasetAgeROF2$wildfires <- 2015 - DatasetAgeROF2$wildfires ## TODO: use `dataYear` layer?
+# hist(DatasetAge_ROF$timesincefire)
+# unique(DatasetAge_ROF$timesincefire)
+DatasetAge_ROF$timesincefire <- ifelse(DatasetAge_ROF$timesincefire < 1970, NA, DatasetAge_ROF$timesincefire)
+DatasetAge_ROF$timesincefire <- 2015 - DatasetAge_ROF$timesincefire ## TODO: use `dataYear` layer?
 
 ## predictions for ROF -------------------------------------------------------------------------
 
-DatasetAgeROF2$predictAge <- exp(predict(modage2, DatasetAgeROF2))
-DatasetAgeROF2$predictAge <- round(DatasetAgeROF2$predictAge, 0)
-hist(DatasetAgeROF2$predictAge)
-head(DatasetAgeROF2$predictAge)
-DatasetAgeROF2$predictAge[!is.finite(DatasetAgeROF2$predictAge)] <- NA
-DatasetAgeROF3 <- subset(DatasetAgeROF2, predictAge < 300 & predictAge > 0)
+DatasetAge_ROF$predictAge <- exp(predict(modage2, DatasetAge_ROF))
+DatasetAge_ROF$predictAge <- round(DatasetAge_ROF$predictAge, 0)
+hist(DatasetAge_ROF$predictAge)
+head(DatasetAge_ROF$predictAge)
+DatasetAge_ROF$predictAge[!is.finite(DatasetAge_ROF$predictAge)] <- NA
+DatasetAgeROF3 <- subset(DatasetAge_ROF, predictAge < 300 & predictAge > 0)
 range(na.omit(DatasetAgeROF3$predictAge))
 hist((DatasetAgeROF3$predictAge))
 
 ## substitute predictions with time since last fire for the plots with information about wildfires
-DatasetAgeROF3$predictAge <- ifelse(!is.na(DatasetAgeROF3$wildfires), DatasetAgeROF3$wildfires, DatasetAgeROF3$predictAge)
+DatasetAgeROF3$predictAge <- ifelse(!is.na(DatasetAgeROF3$timesincefire), DatasetAgeROF3$timesincefire, DatasetAgeROF3$predictAge)
 DatasetAgeROF3$predictAge <- as.numeric(DatasetAgeROF3$predictAge)
 hist((DatasetAgeROF3$predictAge))
 
