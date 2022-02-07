@@ -156,7 +156,7 @@ if (!file.exists(fo)) {
 ##rasStack <- terra::rast(fo) ## ensure loaded from file and not in memory
 ##rasValue1 <- terra::extract(rasStack, LCC_points) ## TODO: 280+ GB RAM used !!
 rasStack <- raster::stack(fo) ## ensure loaded from file and not in memory
-rasValue1 <- raster::extract(rasStack, LCC_points) ## 100+ GB
+rasValue1 <- Cache(raster::extract, x = rasStack, y = LCC_points) ## 100+ GB
 rm(rasStack)
 gc()
 
