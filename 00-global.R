@@ -126,6 +126,8 @@ rm(id, rasValue0)
 gc()
 
 DatasetAge3_ROF <- na.omit(DatasetAge2_ROF)
+DatasetAge3_ROF$sccoords.x1 <- scale(DatasetAge3_ROF$coords.x1)
+DatasetAge3_ROF$sccoords.x2 <- scale(DatasetAge3_ROF$coords.x2)
 
 ## TODO: reduce memory by removing intermediate objects
 LCC_points <- Cache(rasterToPoints, x = raster(LCC2015), progress = "text") ## requires ~30 GB
@@ -270,11 +272,11 @@ Fig1 <- ggplot(DatasetAge1_proj, aes(y = TSLF, x = (predictAge))) +
   theme_bw()
 ggsave(file.path(figsDir, "Fig1.png"), Fig1)
 
-## Predicted vs Observed for the ground plots within the ROF region ## Alex resume (HERE)
-DatasetAge3_ROF$predictAge <- exp(predict(modage2, DatasetAge3_ROF)) ## TODO: no scaled coords
+## Predicted vs Observed for the ground plots within the ROF region
+DatasetAge3_ROF$predictAge <- exp(predict(modage2, DatasetAge3_ROF))
 cor.test(
-  DatasetAge3_ROF[which(DatasetAge3_ROF$TSLF > 30 & DatasetAge3_ROF$PrevAge > 30), ]$predictAge,
-  DatasetAge3_ROF[which(DatasetAge3_ROF$TSLF > 30 & DatasetAge3_ROF$PrevAge > 30), ]$TSLF
+  DatasetAge3_ROF[which(DatasetAge3_ROF$TSLF > 30 & DatasetAge3_ROF$PrevAge > 30), ]$predictAge, ## TODO: no prevAge column; cor.test fails
+  DatasetAge3_ROF[which(DatasetAge3_ROF$TSLF > 30 & DatasetAge3_ROF$PrevAge > 30), ]$TSLF ## TODO: no prevAge column
 )
 Fig2 <- ggplot(
   DatasetAge3_ROF[which(DatasetAge3_ROF$TSLF > 30 & DatasetAge3_ROF$predictAge > 30), ],
