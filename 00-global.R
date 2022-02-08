@@ -91,17 +91,16 @@ rasStack <- raster::stack(fo)
 layerNames <- c("LCC", "total_BA", "Tave_sm", "ecozone", "TSLF", "PrevAge")
 names(rasStack) <- layerNames
 
-fq <- file.path(outputDir, "rasValue1.qs")
+fq <- file.path(outputDir, "rasValue1.rds")
 if (!file.exists(fq)) {
-  rasValue1 <- raster::extract(x = rasStack, y = LCC_points) ## 100+ GB; 45+ mins
-  qs::qsave(fq)
+  rasValue1 <- as.data.frame(raster::extract(x = rasStack, y = LCC_points)) ## 100+ GB; 45+ mins
+  saveRDS(rasValue1, fq)
 } else {
-  rasValue1 <- qs::qload(fq)
+  rasValue1 <- readRDS(fq)
 }
 rm(rasStack)
 gc()
 
-## TODO: rework as data.table
 DatasetAge_ROF <- as.data.frame(cbind(LCC_points, rasValue1))
 DatasetAge_ROF <- na.omit(DatasetAge_ROF)
 stopifnot(colnames(DatasetAge_ROF) == c("coords.x1", "coords.x2", layerNames))
@@ -141,27 +140,26 @@ tmp <- rbind(
   DatasetAge3_ROF[, c("coords.x1", "coords.x2", "source")],
   DatasetAge1_proj[, c("coords.x1", "coords.x2", "source")]
 )
-tmp2 <- scale(tmp[, c("coords.x1", "coords.x2")]) ## centered using mean see ?scale
-tmp$coords.x1 <- tmp2$coords.x1
-tmp$coords.x2 <- tmp2$coords.x2
-colnames(tmp) <- c("sccoords.x1", "sccoords.x2", "source")
+tmp2 <- as.data.frame(scale(tmp[, c("coords.x1", "coords.x2")])) ## centered using mean see ?scale
+tmp2 <- cbind(tmp2, tmp[, "source"])
+colnames(tmp2) <- c("sccoords.x1", "sccoords.x2")
 
-DatasetAge_ROF <- cbind(DataSetAge_ROF, subset(tmp, source == "DatasetAge_ROF"))
-DatasetAge3_ROF <- cbind(DatasetAge3_ROF, subset(tmp, source == "DatasetAge3_ROF"))
-DatasetAge1_proj <- cbind(DatasetAge1_proj, subset(tmp, source == "DatasetAge1_proj"))
+DatasetAge_ROF <- cbind(DatasetAge_ROF, subset(tmp2, source == "DatasetAge_ROF"))
+DatasetAge3_ROF <- cbind(DatasetAge3_ROF, subset(tmp2, source == "DatasetAge3_ROF"))
+DatasetAge1_proj <- cbind(DatasetAge1_proj, subset(tmp2, source == "DatasetAge1_proj"))
 
-rm(tmp)
+rm(tmp, tmp2)
 
 DatasetAge_ROF$TSLF <- as.integer(DatasetAge_ROF$TSLF)
 DatasetAge_ROF$TSLF <- ifelse(DatasetAge_ROF$TSLF < 1970L, NA_integer_, DatasetAge_ROF$TSLF)
 
 ## the model -----------------------------------------------------------------------------------
 
-## drop unused columns from input and prediction datasets; keep only those used in modage2
-cols2keep <- c("sccoords.x1", "sccoords.x2", "LCC", "total_BA", "Tave_sm", "ecozone", "TSLF")
-DatasetAge_ROF <- DatasetAge_ROF[, cols2keep]
-DatasetAge3_ROF <- DatasetAge3_ROF[, cols2keep]
-DatasetAge1_proj <- DatasetAge1_proj[, cols2keep]
+## drop unused columns from input and prediction datasets; keep only those used in modage2 + prevAge
+cols2keep <- c("sccoords.x1", "sccoords.x2", layerNames)
+DatasetAge_ROF <- DatasetAge_ROF[, names(DatasetAge_ROF) %in% cols2keep]
+DatasetAge3_ROF <- DatasetAge3_ROF[, names(DatasetAge3_ROF) %in% cols2keep]
+DatasetAge1_proj <- DatasetAge1_proj[, names(DatasetAge1_proj) %in% cols2keep]
 
 ## NOTE: too much RAM to run below with the parameter select=TRUE
 modage2 <- bam(log(TSLF) ~ s(total_BA) +
@@ -177,16 +175,17 @@ modage2 <- bam(log(TSLF) ~ s(total_BA) +
                  s(sccoords.x1, sccoords.x2, bs = "gp", k = 100, m = 2),
                data = DatasetAge1_proj, method = "fREML", drop.intercept = FALSE, discrete = TRUE
 )
-AIC(modage2)  ## TODO: write to file
-summary(modage2) ## TODO: write to file
-
-## NOTE: not all ecozones and LCCs present in ROF area, so some warnings produced; it's OK
+sink(file.path(outputDir, "modage2.txt"))
+summary(modage2)
+AIC(modage2)
+sink()
 
 png(file.path(figsDir, "modage2.png"), width = 1200, height = 600, pointsize = 12)
 par(mfrow = c(2, 2), mar = c(4, 4, 2, 1))
 gam.check(modage2, rep = 100)
 dev.off()
 
+## NOTE: not all ecozones and LCCs present in ROF area, so some warnings produced; it's OK
 DatasetAge1_proj$predictAge <- exp(predict(modage2, DatasetAge1_proj))
 
 FigHist1 <- ggplot(DatasetAge1_proj, aes(x = TSLF)) +
@@ -350,7 +349,8 @@ if (isTRUE(reupload)) {
 
   ## output figures + rasters
   filesToUpload <- c(
-    list.files(figsDir, full.names = TRUE) ## TODO: add final raster output
+    list.files(figsDir, full.names = TRUE), ## TODO: add final raster output
+    file.path(outputDir, modage2.txt)
   )
 
   lapply(filesToUpload, function(f) {
