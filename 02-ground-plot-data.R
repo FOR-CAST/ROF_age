@@ -7,14 +7,12 @@ if (!file.exists(f01)) {
   drive_download(as_id("1Ig7pNz1eYk5zWTYYpeR5LLYvdGzbV8Mx"), path = f01)
 }
 DatasetAge0 <- read.table(f01, header = TRUE, sep = "\t", fill = TRUE, dec = ".")
-colnames(DatasetAge0)
+# colnames(DatasetAge0)
 DatasetAge0$ecozone_combined <- as.factor(DatasetAge0$ecozone_combined)
 DatasetAge0$ecozone_combined <- factor(DatasetAge0$ecozone_combined, levels(DatasetAge0$ecozone_combined)[c(1, 2, 4, 6, 3, 5)])
-DatasetAge0$year_BA <- as.factor(DatasetAge0$year_BA) ## TODO: why convert to factor only to make a numeric on the next lines???
 # summary(DatasetAge0$ecozone_combined)
 # str(DatasetAge0)
 #DatasetAge0 <- subset(DatasetAge0, project_ID != "BurnedNWT")
-DatasetAge0$year_BA <- as.numeric(as.character(DatasetAge0$year_BA))
 DatasetAge0 <- tidyr::drop_na(DatasetAge0, latitude)
 DatasetAge0 <- tidyr::drop_na(DatasetAge0, TSLF)
 DatasetAge0 <- subset(DatasetAge0, ecozone_combined != c("ALASKA INT"))

@@ -119,14 +119,11 @@ if (lowMemory) {
   wildfires <- Cache(LandR::getWildfire_NFI, dPath = inputDir, rasterToMatch = LCC2015)
 }
 
-## TODO: skip for now - confirm whether to use raster or add to df directly
-if (FALSE) {
-  ## create time since fire (TSF) layer
-  dataYear <- terra::rast(wildfires) ## template using `wildfires`
-  dataYear[] <- 2015L ## TODO: adjust this to match the years of the relevant data
-
-  tsf <- dataYear - wildfires
-}
+## create time since fire (TSF) layer
+dataYear <- terra::rast(wildfires) ## template using `wildfires`
+dataYear[] <- 2015L ## TODO: adjust this to match the years of the relevant data
+tslf <- dataYear - wildfires
+rm(dataYear)
 
 ecozones <- Cache(
   prepInputs_ecozones,

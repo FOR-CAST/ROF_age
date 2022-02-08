@@ -2,58 +2,7 @@ if (file.exists(".Renviron")) readRenviron(".Renviron")
 
 ## project setup + package installation --------------------------------------------------------
 
-pkgDir <- Sys.getenv("PRJ_PKG_DIR")
-if (!nzchar(pkgDir)) {
-  pkgDir <- "packages" ## default: use subdir within project directory
-}
-pkgDir <- normalizePath(
-  file.path(pkgDir, version$platform, paste0(version$major, ".", strsplit(version$minor, "[.]")[[1]][1])),
-  winslash = "/",
-  mustWork = FALSE
-)
-
-if (!dir.exists(pkgDir)) {
-  dir.create(pkgDir, recursive = TRUE)
-}
-
-.libPaths(pkgDir)
-message("Using libPaths:\n", paste(.libPaths(), collapse = "\n"))
-
-if (!require("Require", quietly = TRUE)) {
-  install.packages("Require")
-  library(Require)
-}
-
-Require("PredictiveEcology/SpaDES.install@development")
-
-.spatialPkgs <- c("lwgeom", "rgdal", "rgeos", "sf", "sp", "raster", "terra")
-
-if (!all(.spatialPkgs %in% rownames(installed.packages()))) {
-  installSpatialPackages(.spatialPkgs)
-  #install.packages(c("raster", "terra"), repos = "https://rspatial.r-universe.dev")
-  sf::sf_extSoftVersion() ## want GEOS 3.9.0, GDAL 3.2.1, PROJ 7.2.1
-}
-
-## TODO: remove unused packages
-pkgs1 <- c(
-  "data.table", "DHARMa", "effects", "foreign", "gamlss", "ggpubr", "lme4", "lmerTest",
-  "dplyr", "readr", "tidyverse", ## TODO: remove these in favour of data.table
-  "performance", "qs", "RCurl", "splines", "styler"
-)
-Require(pkgs1, require = FALSE) ## don't load/attach yet, just ensure these get installed
-
-Require("PredictiveEcology/reproducible@terraInProjectInputs (>= 1.2.8.9023)", require = FALSE)
-Require("PredictiveEcology/LandR@development (>= 1.0.7.9002)", require = FALSE)
-
-## install these if needed, and load/attach:
-pkgs2 <- c(
-  "fasterize", "ggplot2", "googledrive", "mgcv" ## TODO: need tidyr but Rstudio is a jerk
-)
-Require(c(pkgs2, "raster", "sf", "terra", "reproducible"))
-
-if (identical(Sys.info()[["user"]], "achubaty")) {
-  drive_auth(email = "achubaty@for-cast.ca")
-}
+source("01-packages.R")
 
 ## project options + set paths ------------------------------------------------------------------
 
@@ -97,11 +46,11 @@ opts <- options(
 
 ## data from national ground plots --------------------------------------------------------------
 
-source("01-ground-plot-data.R")
+source("02-ground-plot-data.R")
 
 ## get/load spatial data -----------------------------------------------------------------------
 
-source("02-input-rasters.R")
+source("03-input-rasters.R")
 
 png(file.path(figsDir, "DatasetAge1_all.png"))
 plot(canProvs)
@@ -115,63 +64,49 @@ stopifnot(compareCRS(targetProj, DatasetAge1_sp))
 
 DatasetAge1_ROF <- st_intersection(DatasetAge1_sf, studyArea_ROF)
 rasValue0 <- terra::extract(prevAgeLayer, terra::vect(as_Spatial(DatasetAge1_ROF)))
+colnames(rasValue0) <- c("ID", "PrevAge")
 rasValue0 <- na.omit(rasValue0)
 
 DatasetAge2_ROF <- as.data.frame(cbind(
   as.data.frame(DatasetAge1_ROF), coordinates(as_Spatial(DatasetAge1_ROF)), rasValue0
 ))
-id <- which(colnames(DatasetAge2_ROF) %in% c("standAgeMap2011_ROF", "lyr.1")) ## TODO: why does name change?
-colnames(DatasetAge2_ROF)[id] <- "PrevAge"
-rm(id, rasValue0)
-gc()
+rm(rasValue0)
 
 DatasetAge3_ROF <- na.omit(DatasetAge2_ROF)
-DatasetAge3_ROF$sccoords.x1 <- scale(DatasetAge3_ROF$coords.x1)
-DatasetAge3_ROF$sccoords.x2 <- scale(DatasetAge3_ROF$coords.x2)
 
-## TODO: reduce memory by removing intermediate objects
 LCC_points <- Cache(rasterToPoints, x = raster(LCC2015), progress = "text") ## requires ~30 GB
-LCC_points <- as.data.frame(LCC_points[, -3]) ## drop LCC column
+LCC_points <- as.data.frame(LCC_points[, -which(colnames(LCC_points) == "CAN_LC_2015_CAL")])
 colnames(LCC_points) <- c("coords.x1", "coords.x2")
 
 fo <- file.path(outputDir, "covariate_layers_ROF", "covariate_layers_ROF.tif")
-fz <- extension(dirname(fo), "zip")
-checkPath(dirname(fo), create = TRUE)
 
-## TODO: tweak/test this and move file upload to section with al other uploads
 if (!file.exists(fo)) {
-  if (isTRUE(reupload)) {
-    ## TODO: Cache this once reproducible better handles terra objs
-    rasStack <- terra::rast(list(LCC2015, ba, Tave, ecozones, tsf, prevAgeLayer)) ## TODO: using tsf, not wildfires; update below
-
-    terra::writeRaster(rasStack, fo)
-    archive::archive_write_dir(fz, dirname(fo))
-    retry(quote(drive_put(fz, gid_outputs)), retries = 5, exponentialDecayBase = 2)
-  } else {
-    drive_download(as_id("1VVqOFObd8nZdLtyOsfztEihweSTSlXVZ"))
-    archive::archive_extract(fz, dir = outputDir) ## TODO: confirm download + extract works
-  }
+  drive_download(as_id("1VVqOFObd8nZdLtyOsfztEihweSTSlXVZ"))
+  archive::archive_extract(extension(dirname(fo), "zip"), dir = outputDir) ## TODO: confirm download + extract works
 }
 
-## TODO: there's got to be a faster/lower-memory way to do this: #19
+## TODO: faster/lower-memory way to do this? see #19
+##rasValue1 <- terra::extract(rasStack, LCC_points, na.rm = TRUE) ## TODO: 280+ GB RAM used !!
+rasStack <- raster::stack(fo)
+layerNames <- c("LCC", "total_BA", "Tave_sm", "ecozone", "TSLF", "PrevAge")
+names(rasStack) <- layerNames
 
-##rasStack <- terra::rast(fo) ## ensure loaded from file and not in memory
-##rasValue1 <- terra::extract(rasStack, LCC_points) ## TODO: 280+ GB RAM used !!
-rasStack <- raster::stack(fo) ## ensure loaded from file and not in memory
-rasValue1 <- Cache(raster::extract, x = rasStack, y = LCC_points) ## 100+ GB
+fq <- file.path(outputDir, "rasValue1.qs")
+if (!file.exists(fq)) {
+  rasValue1 <- raster::extract(x = rasStack, y = LCC_points) ## 100+ GB; 45+ mins
+  qs::qsave(fq)
+} else {
+  rasValue1 <- qs::qload(fq)
+}
 rm(rasStack)
 gc()
 
-## TODO: note the NaN values in rasValue1 -- are these 'correct', or an error?
-
+## TODO: rework as data.table
 DatasetAge_ROF <- as.data.frame(cbind(LCC_points, rasValue1))
-# head(DatasetAge_ROF)
-colnames(DatasetAge_ROF) <- c("coords.x1", "coords.x2", "LCC", "total_BA", "Tave_sm", "ecozone", "timesincefire", "prevAge")
-# head(DatasetAge_ROF)
+DatasetAge_ROF <- na.omit(DatasetAge_ROF)
+stopifnot(colnames(DatasetAge_ROF) == c("coords.x1", "coords.x2", layerNames))
 rm(rasValue1)
 gc()
-
-DatasetAge_ROF <- na.omit(DatasetAge_ROF)
 
 # str(DatasetAge_ROF)
 DatasetAge_ROF$ecozone <- as.factor(as.character(DatasetAge_ROF$ecozone))
@@ -188,40 +123,48 @@ DatasetAge_ROF <- subset(DatasetAge_ROF, Tave_sm > 0)
 DatasetAge_ROF <- subset(DatasetAge_ROF, total_BA > 0)
 levels(DatasetAge_ROF$LCC)[grepl("11|12|13", levels(DatasetAge_ROF$LCC))] <- "11_12_13"
 
-DatasetAge_ROF$TypeData <- "PredDataset"
-DatasetAge_ROF$TSLF <- "TSLF"
-# colnames(DatasetAge_ROF)
+## NOTE: should be [centered] and scaled together to ensure they are comparable:
+cols2use <- c("coords.x1", "coords.x2", layerNames, "source")
 
-DatasetAge1_proj$TypeData <- "InputDataset"
-DatasetAge1_proj$timesincefire <- "timesincefire"
-DatasetAge1_proj$prevAge <- "prevAge"
-# colnames(DatasetAge1_proj)
+DatasetAge_ROF$source <- "DatasetAge_ROF"
+stopifnot(colnames(DatasetAge_ROF) == cols2use)
 
-DatasetAge1_proj <- DatasetAge1_proj[, c(
-  "coords.x1", "coords.x2", "LCC", "total_BA", "Tave_sm",
-  "ecozone", "timesincefire", "prevAge", "TypeData", "TSLF"
-)]
+DatasetAge1_proj$source <- "DatasetAge1_proj"
+DatasetAge1_proj$PrevAge <- "PrevAge"
+DatasetAge1_proj <- DatasetAge1_proj[, cols2use]
 
-DataInputPred <- rbind(DatasetAge_ROF, DatasetAge1_proj)
-DataInputPred$sccoords.x1 <- scale(DataInputPred$coords.x1)
-DataInputPred$sccoords.x2 <- scale(DataInputPred$coords.x2)
+DatasetAge3_ROF$source <- "DatasetAge3_ROF"
+DatasetAge3_ROF <- DatasetAge3_ROF[, cols2use]
 
-DatasetAge_ROF <- subset(DataInputPred[, -which(colnames(DataInputPred) == "TSLF")], TypeData == "PredDataset")
-DatasetAge1_proj <- subset(DataInputPred[, -which(colnames(DataInputPred) %in% c("timesincefire", "prevAge"))], TypeData == "InputDataset")
-DatasetAge1_proj$TSLF <- as.numeric(DatasetAge1_proj$TSLF)
+tmp <- rbind(
+  DatasetAge_ROF[, c("coords.x1", "coords.x2", "source")],
+  DatasetAge3_ROF[, c("coords.x1", "coords.x2", "source")],
+  DatasetAge1_proj[, c("coords.x1", "coords.x2", "source")]
+)
+tmp2 <- scale(tmp[, c("coords.x1", "coords.x2")]) ## centered using mean see ?scale
+tmp$coords.x1 <- tmp2$coords.x1
+tmp$coords.x2 <- tmp2$coords.x2
+colnames(tmp) <- c("sccoords.x1", "sccoords.x2", "source")
 
-DatasetAge_ROF$timesincefire <- as.integer(DatasetAge_ROF$timesincefire) ## TODO: use TSLF or simesincefire ???
-# hist(DatasetAge_ROF$timesincefire)
-# unique(DatasetAge_ROF$timesincefire)
-DatasetAge_ROF$timesincefire <- ifelse(DatasetAge_ROF$timesincefire < 1970, NA, DatasetAge_ROF$timesincefire)
-DatasetAge_ROF$timesincefire <- 2015L - DatasetAge_ROF$timesincefire ## TODO: use `dataYear` layer?
+DatasetAge_ROF <- cbind(DataSetAge_ROF, subset(tmp, source == "DatasetAge_ROF"))
+DatasetAge3_ROF <- cbind(DatasetAge3_ROF, subset(tmp, source == "DatasetAge3_ROF"))
+DatasetAge1_proj <- cbind(DatasetAge1_proj, subset(tmp, source == "DatasetAge1_proj"))
 
-rm(DataInputPred)
+rm(tmp)
+
+DatasetAge_ROF$TSLF <- as.integer(DatasetAge_ROF$TSLF)
+DatasetAge_ROF$TSLF <- ifelse(DatasetAge_ROF$TSLF < 1970L, NA_integer_, DatasetAge_ROF$TSLF)
 
 ## the model -----------------------------------------------------------------------------------
 
-## NOTE: need too much RAM to run below with the parameter select=TRUE
-modage2 <- bam(TSLF ~ s(total_BA) +
+## drop unused columns from input and prediction datasets; keep only those used in modage2
+cols2keep <- c("sccoords.x1", "sccoords.x2", "LCC", "total_BA", "Tave_sm", "ecozone", "TSLF")
+DatasetAge_ROF <- DatasetAge_ROF[, cols2keep]
+DatasetAge3_ROF <- DatasetAge3_ROF[, cols2keep]
+DatasetAge1_proj <- DatasetAge1_proj[, cols2keep]
+
+## NOTE: too much RAM to run below with the parameter select=TRUE
+modage2 <- bam(log(TSLF) ~ s(total_BA) +
                  s(Tave_sm) +
                  LCC +
                  ecozone +
@@ -232,10 +175,12 @@ modage2 <- bam(TSLF ~ s(total_BA) +
                  # s(Tave_sm, by = LCC) +
                  # s(Tave_sm, by = ecozone)+
                  s(sccoords.x1, sccoords.x2, bs = "gp", k = 100, m = 2),
-               data = DatasetAge1_proj, method = "fREML", family = nb(), drop.intercept = FALSE, discrete = TRUE
-) ## TODO: NaNs produced
+               data = DatasetAge1_proj, method = "fREML", drop.intercept = FALSE, discrete = TRUE
+)
 AIC(modage2)  ## TODO: write to file
 summary(modage2) ## TODO: write to file
+
+## NOTE: not all ecozones and LCCs present in ROF area, so some warnings produced; it's OK
 
 png(file.path(figsDir, "modage2.png"), width = 1200, height = 600, pointsize = 12)
 par(mfrow = c(2, 2), mar = c(4, 4, 2, 1))
@@ -331,12 +276,17 @@ head(DatasetAge_ROF$predictAge)
 DatasetAge_ROF$predictAge[!is.finite(DatasetAge_ROF$predictAge)] <- NA
 DatasetAgeROF3 <- subset(DatasetAge_ROF, predictAge < 300 & predictAge > 0)
 range(na.omit(DatasetAgeROF3$predictAge))
-hist((DatasetAgeROF3$predictAge))
+
+png() ## TODO
+hist(DatasetAgeROF3$predictAge)
+dev.off()
 
 ## substitute predictions with time since last fire for the plots with information about wildfires
-DatasetAgeROF3$predictAge <- ifelse(!is.na(DatasetAgeROF3$timesincefire), DatasetAgeROF3$timesincefire, DatasetAgeROF3$predictAge)
+DatasetAgeROF3$predictAge <- ifelse(!is.na(DatasetAgeROF3$TSLF), DatasetAgeROF3$TSLF, DatasetAgeROF3$predictAge)
 DatasetAgeROF3$predictAge <- as.numeric(DatasetAgeROF3$predictAge)
-hist((DatasetAgeROF3$predictAge))
+png() ## TODO
+hist(DatasetAgeROF3$predictAge)
+dev.off()
 
 ## TODO: use terra equivalents
 template_raster <- raster(raster(LCC2015)) ## use as template
@@ -356,14 +306,8 @@ png(file.path(figsDir, "age_layer_orig_250m.png")) ## TODO: confirm this is with
 plot(prevAgeLayer)
 dev.off()
 
-## TODO: if all you want is a hist of prev age, use layer directly: `hist(prevAgeLayer)`
-rasValue2 <- terra::extract(prevAgeLayer, LCC_points)
-DatasetAgeROF4 <- as.data.frame(cbind(LCC_points, rasValue2))
-colnames(DatasetAgeROF4)[3] <- "PrevAge" ## TODO: don't hardcode indices
-DatasetAgeROF4 <- na.omit(DatasetAgeROF4)
-
 png(file.path(figsDir, "hist_prev_age.png"))
-hist(DatasetAgeROF4$PrevAge)
+hist(prevAgeLayer[])
 dev.off()
 
 ## final (new) age layer for simulations:
@@ -392,6 +336,17 @@ if (isTRUE(reupload)) {
 
     retry(quote(drive_put(z, gid_inputs)), retries = 5, exponentialDecayBase = 2)
   })
+
+  fo <- file.path(outputDir, "covariate_layers_ROF", "covariate_layers_ROF.tif")
+  fz <- extension(dirname(fo), "zip")
+  checkPath(dirname(fo), create = TRUE)
+
+  ## TODO: Cache this once reproducible better handles terra objs
+  rasStack <- c(LCC2015, ba, Tave, ecozones, tslf, prevAgeLayer)
+
+  terra::writeRaster(rasStack, fo, overwrite = TRUE)
+  archive::archive_write_dir(fz, dirname(fo))
+  retry(quote(drive_put(fz, gid_outputs)), retries = 5, exponentialDecayBase = 2)
 
   ## output figures + rasters
   filesToUpload <- c(
