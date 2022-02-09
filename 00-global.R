@@ -102,19 +102,20 @@ rm(rasStack)
 gc()
 
 DatasetAge_ROF <- as.data.frame(cbind(LCC_points, rasValue1))
-DatasetAge_ROF <- na.omit(DatasetAge_ROF)
+#DatasetAge_ROF <- na.omit(DatasetAge_ROF) # RAS: You shouldn't remove the NAs because you have TSLF in the dataframe. If you run the line your dataframe is reduced to the pixels with wildfires
+# You need to remove TSLF and PrevAge from the rasStack (L90) to remove the NAs in that dataframe. 
 stopifnot(colnames(DatasetAge_ROF) == c("coords.x1", "coords.x2", layerNames))
 rm(rasValue1)
 gc()
 
 # str(DatasetAge_ROF)
-DatasetAge_ROF$ecozone <- as.factor(as.character(DatasetAge_ROF$ecozone))
+DatasetAge_ROF$ecozone <- as.factor(as.character(DatasetAge_ROF$ecozone))# I have loaded the ecozone layer and the values are 1 or 2. Correct L114 and 115
 # summary(DatasetAge_ROF$ecozone)
-levels(DatasetAge_ROF$ecozone)[levels(DatasetAge_ROF$ecozone) == "10"] <- "BOREAL SHIELD"
-levels(DatasetAge_ROF$ecozone)[levels(DatasetAge_ROF$ecozone) == "11"] <- "HUDSON PLAIN"
+levels(DatasetAge_ROF$ecozone)[levels(DatasetAge_ROF$ecozone) == "1"] <- "BOREAL SHIELD"
+levels(DatasetAge_ROF$ecozone)[levels(DatasetAge_ROF$ecozone) == "2"] <- "HUDSON PLAIN"
 DatasetAge_ROF <- subset(DatasetAge_ROF, !(ecozone %in% c("3"))) # SOUTHERN ARTIC
 
-DatasetAge_ROF$LCC <- as.factor(as.character(DatasetAge_ROF$LCC)) ## TODO: confirm LCC is integer/factor
+DatasetAge_ROF$LCC <- as.factor(as.character(DatasetAge_ROF$LCC)) ## TODO: confirm LCC is integer/factor. RAS: LCC is factor. Right now LCC raster is numeric, at least for the low memory version. This is a problem.
 # summary(DatasetAge_ROF$LCC)
 DatasetAge_ROF <- subset(DatasetAge_ROF, !(LCC %in% c("0", "3", "4", "7", "9", "15", "16", "17", "18")))
 # summary(DatasetAge_ROF$LCC)
@@ -161,19 +162,19 @@ DatasetAge_ROF <- DatasetAge_ROF[, names(DatasetAge_ROF) %in% cols2keep]
 DatasetAge3_ROF <- DatasetAge3_ROF[, names(DatasetAge3_ROF) %in% cols2keep]
 DatasetAge1_proj <- DatasetAge1_proj[, names(DatasetAge1_proj) %in% cols2keep]
 
-## NOTE: too much RAM to run below with the parameter select=TRUE
+## NOTE: too much RAM to run below with the parameter select=TRUE. RAS: Go for the more complex model for now. 
 modage2 <- bam(log(TSLF) ~ s(total_BA) +
                  s(Tave_sm) +
                  LCC +
                  ecozone +
                  ecozone * LCC +
                  ti(total_BA, Tave_sm) +
-                 # s(total_BA, by = LCC) +
-                 # s(total_BA, by = ecozone) +
-                 # s(Tave_sm, by = LCC) +
-                 # s(Tave_sm, by = ecozone)+
+                 s(total_BA, by = LCC) +
+                 s(total_BA, by = ecozone) +
+                 s(Tave_sm, by = LCC) +
+                 s(Tave_sm, by = ecozone)+
                  s(sccoords.x1, sccoords.x2, bs = "gp", k = 100, m = 2),
-               data = DatasetAge1_proj, method = "fREML", drop.intercept = FALSE, discrete = TRUE
+               data = DatasetAge1_proj, method = "fREML", discrete = TRUE
 )
 sink(file.path(outputDir, "modage2.txt"))
 summary(modage2)
