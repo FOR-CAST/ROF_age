@@ -1,4 +1,4 @@
-prepInputs_Terra <- function(url, targetFile, destinationPath, studyArea = NULL, rasterToMatch = NULL) {
+prepInputs_Terra <- function(url, targetFile, destinationPath, studyArea = NULL, rasterToMatch = NULL, method = NULL) {
   xDL <- preProcess(
     url = url,
     targetFile = targetFile, alsoExtract = "similar",
@@ -11,7 +11,7 @@ prepInputs_Terra <- function(url, targetFile, destinationPath, studyArea = NULL,
     }
     postProcessTerra(from = x, to = rasterToMatch)
   } else if (!is.null(studyArea) & is.null(rasterToMatch)) {
-    postProcessTerra(from = x, to = studyArea)
+    postProcessTerra(from = x, to = studyArea, method = method)
   } else {
     stop("Please supply studyArea or rasterMatch.")
   }

@@ -114,7 +114,7 @@ levels(DatasetAge_ROF$ecozone)[levels(DatasetAge_ROF$ecozone) == "10"] <- "BOREA
 levels(DatasetAge_ROF$ecozone)[levels(DatasetAge_ROF$ecozone) == "11"] <- "HUDSON PLAIN"
 DatasetAge_ROF <- subset(DatasetAge_ROF, !(ecozone %in% c("3"))) # SOUTHERN ARTIC
 
-DatasetAge_ROF$LCC <- as.factor(as.character(DatasetAge_ROF$LCC))
+DatasetAge_ROF$LCC <- as.factor(as.character(DatasetAge_ROF$LCC)) ## TODO: confirm LCC is integer/factor
 # summary(DatasetAge_ROF$LCC)
 DatasetAge_ROF <- subset(DatasetAge_ROF, !(LCC %in% c("0", "3", "4", "7", "9", "15", "16", "17", "18")))
 # summary(DatasetAge_ROF$LCC)
@@ -142,7 +142,7 @@ tmp <- rbind(
 )
 tmp2 <- as.data.frame(scale(tmp[, c("coords.x1", "coords.x2")])) ## centered using mean see ?scale
 tmp2 <- cbind(tmp2, tmp[, "source"])
-colnames(tmp2) <- c("sccoords.x1", "sccoords.x2")
+colnames(tmp2) <- c("sccoords.x1", "sccoords.x2", "source")
 
 DatasetAge_ROF <- cbind(DatasetAge_ROF, subset(tmp2, source == "DatasetAge_ROF"))
 DatasetAge3_ROF <- cbind(DatasetAge3_ROF, subset(tmp2, source == "DatasetAge3_ROF"))
@@ -184,6 +184,10 @@ png(file.path(figsDir, "modage2.png"), width = 1200, height = 600, pointsize = 1
 par(mfrow = c(2, 2), mar = c(4, 4, 2, 1))
 gam.check(modage2, rep = 100)
 dev.off()
+
+sink(file.path(outputDir, "modage2_gam_check.txt"))
+gam.check(modage2, rep = 100)
+sink()
 
 ## NOTE: not all ecozones and LCCs present in ROF area, so some warnings produced; it's OK
 DatasetAge1_proj$predictAge <- exp(predict(modage2, DatasetAge1_proj))
@@ -267,8 +271,11 @@ ggsave(file.path(figsDir, "Figs23.png"), Figs23)
 
 ## predictions for ROF -------------------------------------------------------------------------
 
-f <- ceiling(1:nrow(DatasetAge_ROF) / (nrow(DatasetAge_ROF) / 40))
-DatasetAge_ROF$predictAge <- unsplit(exp(predict(modage2, split(DatasetAge_ROF, f))), f)
+# findFactors(nrow(DatasetAge_ROF))
+f <- 253 ## using findFactors()
+DatasetAge_ROF$predictAge <- lapply(split(DatasetAge_ROF, f), function(x) {
+  exp(predict(modage2, as.matrix(x)))
+})
 DatasetAge_ROF$predictAge <- round(DatasetAge_ROF$predictAge, 0)
 hist(DatasetAge_ROF$predictAge)
 head(DatasetAge_ROF$predictAge)

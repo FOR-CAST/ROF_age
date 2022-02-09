@@ -44,7 +44,8 @@ if (lowMemory) {
     url = prebuiltRasterURLs$LCC2015,
     targetFile = prebuiltRasterFilenames$LCC2015,
     destinationPath = inputDir,
-    studyArea = studyArea_ROF
+    studyArea = studyArea_ROF,
+    method = "near"
   )
 
   ## TODO: reupload these prebuilt rasters after making them in !lowMemory branch below
@@ -84,7 +85,8 @@ if (lowMemory) {
     ), ## TODO: use 2010?
     targetFile = basename(f_lcc),
     destinationPath = dirname(f_lcc),
-    studyArea = studyArea_ROF
+    studyArea = studyArea_ROF,
+    method = "near"
   )
 
   ## from https://open.canada.ca/data/en/dataset/4c0d9755-9347-42f2-bb1b-f4d2ff673254
