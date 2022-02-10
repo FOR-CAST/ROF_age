@@ -94,6 +94,14 @@ names(rasStack) <- layerNames
 fq <- file.path(outputDir, "rasValue1.rds")
 if (!file.exists(fq)) {
   rasValue1 <- as.data.frame(raster::extract(x = rasStack, y = LCC_points)) ## 100+ GB; 45+ mins
+  rasValue1 <- rasValue1[, -which(colnames(rasValue1) == "ID")]
+
+  ## ensure correct datatypes
+  rasValue1$LCC <- as.integer(rasValue1$LCC)
+  rasValue1$ecozone <- as.integer(rasValue1$ecozone)
+  rasValue1$TSLF <- as.integer(rasValue1$TSLF)
+  rasValue1$PrevAge <- as.integer(rasValue1$Prev)
+
   saveRDS(rasValue1, fq)
 } else {
   rasValue1 <- readRDS(fq)

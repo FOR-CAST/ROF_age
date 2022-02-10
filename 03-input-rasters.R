@@ -47,6 +47,7 @@ if (lowMemory) {
     studyArea = studyArea_ROF,
     method = "near"
   )
+  LCC2015 <- terra::as.int(LCC2015)
 
   ## TODO: reupload these prebuilt rasters after making them in !lowMemory branch below
   ba <- Cache(
@@ -88,6 +89,7 @@ if (lowMemory) {
     studyArea = studyArea_ROF,
     method = "near"
   )
+  LCC2015 <- terra::as.int(LCC2015)
 
   ## from https://open.canada.ca/data/en/dataset/4c0d9755-9347-42f2-bb1b-f4d2ff673254
   f_ba <- file.path(inputDir, "CA_forest_basal_area_2015_NN.tif")
@@ -125,6 +127,7 @@ if (lowMemory) {
 dataYear <- terra::rast(wildfires) ## template using `wildfires`
 dataYear[] <- 2015L ## TODO: adjust this to match the years of the relevant data
 tslf <- dataYear - wildfires
+tslf <- terra::as.int(tslf) ## probably reduundant, but enforce int
 rm(dataYear)
 
 ecozones <- Cache(

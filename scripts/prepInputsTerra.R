@@ -56,7 +56,8 @@ prepInputs_ecozones <- function(url, targetFile, destinationPath, studyArea = NU
   ecozone_shp[["ZONE_NAME"]] <- as.factor(ecozone_shp[["ZONE_NAME"]])
   ecozone <- fasterize::fasterize(ecozone_shp, raster(rasterToMatch), field = "ZONE_NAME", fun = "sum")
   ecozone <- terra::rast(ecozone)
-  ecozone <- terra::project(ecozone, rasterToMatch)
+  ecozone <- terra::as.int(ecozone)
+  ecozone <- terra::project(ecozone, rasterToMatch, method = "near")
 
   return(ecozone)
 }
@@ -72,7 +73,8 @@ prepInputs_prevAgeLayer <- function(url, targetFile, destinationPath, studyArea 
     rasterToMatch = raster(rasterToMatch)
   )
   prevAgeLayer <- terra::rast(prevAgeLayer)
-  prevAgeLayer <- terra::project(prevAgeLayer, rasterToMatch)
+  prevAgeLayer <- terra::as.int(prevAgeLayer)
+  prevAgeLayer <- terra::project(prevAgeLayer, rasterToMatch, method = "near")
 
   return(prevAgeLayer)
 }
