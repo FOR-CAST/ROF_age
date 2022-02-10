@@ -41,6 +41,10 @@ Require(pkgs1, require = FALSE) ## don't load/attach yet, just ensure these get 
 Require("PredictiveEcology/reproducible@terraInProjectInputs (>= 1.2.8.9023)", require = FALSE)
 Require("PredictiveEcology/LandR@development (>= 1.0.7.9002)", require = FALSE)
 
+if (FALSE) {
+  remotes::update_packages()
+}
+
 ## install these if needed, and load/attach:
 pkgs2 <- c(
   "fasterize", "ggplot2", "googledrive", "mgcv" ## TODO: need tidyr but Rstudio is a jerk
