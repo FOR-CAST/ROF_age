@@ -102,7 +102,6 @@ rm(rasStack)
 gc()
 
 DatasetAge_ROF <- as.data.frame(cbind(LCC_points, rasValue1))
-DatasetAge_ROF <- na.omit(DatasetAge_ROF)
 stopifnot(colnames(DatasetAge_ROF) == c("coords.x1", "coords.x2", layerNames))
 rm(rasValue1)
 gc()
@@ -110,8 +109,8 @@ gc()
 # str(DatasetAge_ROF)
 DatasetAge_ROF$ecozone <- as.factor(as.character(DatasetAge_ROF$ecozone))
 # summary(DatasetAge_ROF$ecozone)
-levels(DatasetAge_ROF$ecozone)[levels(DatasetAge_ROF$ecozone) == "10"] <- "BOREAL SHIELD"
-levels(DatasetAge_ROF$ecozone)[levels(DatasetAge_ROF$ecozone) == "11"] <- "HUDSON PLAIN"
+levels(DatasetAge_ROF$ecozone)[levels(DatasetAge_ROF$ecozone) == "1"] <- "BOREAL SHIELD"
+levels(DatasetAge_ROF$ecozone)[levels(DatasetAge_ROF$ecozone) == "2"] <- "HUDSON PLAIN"
 DatasetAge_ROF <- subset(DatasetAge_ROF, !(ecozone %in% c("3"))) # SOUTHERN ARTIC
 
 DatasetAge_ROF$LCC <- as.factor(as.character(DatasetAge_ROF$LCC)) ## TODO: confirm LCC is integer/factor
@@ -168,12 +167,12 @@ modage2 <- bam(log(TSLF) ~ s(total_BA) +
                  ecozone +
                  ecozone * LCC +
                  ti(total_BA, Tave_sm) +
-                 # s(total_BA, by = LCC) +
-                 # s(total_BA, by = ecozone) +
-                 # s(Tave_sm, by = LCC) +
-                 # s(Tave_sm, by = ecozone)+
+                 s(total_BA, by = LCC) +
+                 s(total_BA, by = ecozone) +
+                 s(Tave_sm, by = LCC) +
+                 s(Tave_sm, by = ecozone)+
                  s(sccoords.x1, sccoords.x2, bs = "gp", k = 100, m = 2),
-               data = DatasetAge1_proj, method = "fREML", drop.intercept = FALSE, discrete = TRUE
+               data = DatasetAge1_proj, method = "fREML", discrete = TRUE, #drop.intercept = FALSE,
 )
 sink(file.path(outputDir, "modage2.txt"))
 summary(modage2)
