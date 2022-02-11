@@ -63,7 +63,7 @@ stopifnot(compareCRS(targetProj, DatasetAge1_sp))
 ## ROF Dataset for predictions -----------------------------------------------------------------
 
 DatasetAge1_ROF <- st_intersection(DatasetAge1_sf, studyArea_ROF)
-rasValue0 <- terra::extract(prevAgeLayer, terra::vect(as_Spatial(DatasetAge1_ROF)))
+rasValue0 <- terra::extract(prevAgeLayer, terra::vect(DatasetAge1_ROF))
 colnames(rasValue0) <- c("ID", "PrevAge")
 rasValue0 <- na.omit(rasValue0)
 
@@ -185,6 +185,7 @@ modage2 <- bam(log(TSLF) ~ s(total_BA) +
                  s(sccoords.x1, sccoords.x2, bs = "gp", k = 100, m = 2),
                data = DatasetAge1_proj, method = "fREML", discrete = TRUE, #drop.intercept = FALSE,
 )
+
 sink(file.path(outputDir, "modage2.txt"))
 summary(modage2)
 AIC(modage2)
@@ -284,17 +285,17 @@ ggsave(file.path(figsDir, "Figs23.png"), Figs23)
 source("scripts/misc.R")
 f <- findFactors(nrow(DatasetAge_ROF))
 n <- f$pos[f$pos >= 200 & f$pos <= 300][1] ## divide into ~250 groups
+g <- factor(sort(rank(row.names(DatasetAge_ROF)) %% n))
 
-DatasetAge_ROF_split <- split(DatasetAge_ROF, n)
-DatasetAge_ROF_split2 <- lapply(DatasetAge_ROF_split, function(x) {
+DatasetAge_ROF_split <- split(DatasetAge_ROF, g)
+DatasetAge_ROF_split2 <- parallel::mclapply(DatasetAge_ROF_split, function(x) {
   val <- round(exp(predict(modage2, x)), 0)
   val[!is.finite(val)] <- NA
   x$predictAge <- as.integer(val)
-})
-DatasetAge_ROF <- unsplit(DatasetAge_ROF_split2)
+  x
+}, mc.cores = 10)
+DatasetAge_ROF <- unsplit(DatasetAge_ROF_split2, g)
 
-## TODO: use e.g., mclapply
-DatasetAge_ROF$predictAge <- unsplit(DatasetAge_ROF_split)
 DatasetAgeROF3 <- subset(DatasetAge_ROF, predictAge < 300 & predictAge > 0)
 # range(na.omit(DatasetAgeROF3$predictAge))
 
