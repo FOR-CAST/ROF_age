@@ -150,7 +150,11 @@ tmp <- rbind(
   DatasetAge3_ROF[, c("coords.x1", "coords.x2", "source")],
   DatasetAge1_proj[, c("coords.x1", "coords.x2", "source")]
 )
-tmp2 <- as.data.frame(scale(tmp[, c("coords.x1", "coords.x2")])) ## centered using mean see ?scale
+tmp2 <- scale(tmp[, c("coords.x1", "coords.x2")]) ## centered using mean see ?scale
+## TODO: save centre/scale attributes to use later when unscaling (#23)
+scaled.center <- attributes(tmp2)$`scaled:center`
+scaled.scale <- attributes(tmp2)$`scaled:scale`
+tmp2 <- as.data.frame(tmp2)
 tmp2 <- cbind(tmp2, tmp[, "source"])
 colnames(tmp2) <- c("sccoords.x1", "sccoords.x2", "source")
 
@@ -161,12 +165,12 @@ DatasetAge1_proj <- cbind(DatasetAge1_proj, subset(tmp2, source == "DatasetAge1_
 rm(tmp, tmp2)
 
 DatasetAge_ROF$TSLF <- as.integer(DatasetAge_ROF$TSLF)
-DatasetAge_ROF$TSLF <- ifelse(DatasetAge_ROF$TSLF < 1970L, NA_integer_, DatasetAge_ROF$TSLF)
+DatasetAge_ROF$TSLF[DatasetAge_ROF$TSLF < 1970L] <- NA_integer_
 
 ## the model -----------------------------------------------------------------------------------
 
 ## drop unused columns from input and prediction datasets; keep only those used in modage2 + prevAge
-cols2keep <- c("sccoords.x1", "sccoords.x2", layerNames)
+cols2keep <- c("coords.x1", "coords.x2", "sccoords.x1", "sccoords.x2", layerNames) ## TODO: with #23
 DatasetAge_ROF <- DatasetAge_ROF[, names(DatasetAge_ROF) %in% cols2keep]
 DatasetAge3_ROF <- DatasetAge3_ROF[, names(DatasetAge3_ROF) %in% cols2keep]
 DatasetAge1_proj <- DatasetAge1_proj[, names(DatasetAge1_proj) %in% cols2keep]
@@ -286,6 +290,7 @@ source("scripts/misc.R")
 f <- findFactors(nrow(DatasetAge_ROF))
 n <- f$pos[f$pos >= 200 & f$pos <= 300][1] ## divide into ~250 groups
 g <- factor(sort(rank(row.names(DatasetAge_ROF)) %% n))
+Ncores <- 10
 
 DatasetAge_ROF_split <- split(DatasetAge_ROF, g)
 DatasetAge_ROF_split2 <- parallel::mclapply(DatasetAge_ROF_split, function(x) {
@@ -293,32 +298,39 @@ DatasetAge_ROF_split2 <- parallel::mclapply(DatasetAge_ROF_split, function(x) {
   val[!is.finite(val)] <- NA
   x$predictAge <- as.integer(val)
   x
-}, mc.cores = 10)
+}, mc.cores = Ncores) ## 450 GB
 DatasetAge_ROF <- unsplit(DatasetAge_ROF_split2, g)
 
-DatasetAgeROF3 <- subset(DatasetAge_ROF, predictAge < 300 & predictAge > 0)
+ff <- file.path(outputDir, "DatasetAge_ROF_predictAge.qs")
+qs::qsave(DatasetAge_ROF, ff)
+drive_put(ff, gid_outputs, name = basename(ff))
+
+DatasetAgeROF3 <- subset(DatasetAge_ROF, predictAge > 0 & predictAge < 300)
 # range(na.omit(DatasetAgeROF3$predictAge))
 
-png(file.path(figsDir, "hist_DatasetAgeROF3_predictAge_no_fire.png"))
-hist(DatasetAgeROF3$predictAge)
+png(file.path(figsDir, "hist_DatasetAgeROF3_predictAge.png"))
+par(mfrow = c(1, 2))
+hist(DatasetAgeROF3$predictAge, main = "ROF predicted age (uncorrected)")
+hist(DatasetAgeROF3$predictAge, main = "ROF predicted age (corrected with fire data)")
 dev.off()
 
 ## substitute predictions with time since last fire for the plots with information about wildfires
-DatasetAgeROF3$predictAge <- ifelse(!is.na(DatasetAgeROF3$TSLF), DatasetAgeROF3$TSLF, DatasetAgeROF3$predictAge)
+DatasetAgeROF3$predictAge[!is.na(DatasetAgeROF3$TSLF)] <- DatasetAgeROF3$TSLF
 DatasetAgeROF3$predictAge <- as.integer(DatasetAgeROF3$predictAge)
 
-png(file.path(figsDir, "hist_DatasetAgeROF3_predictAge_with_fire.png"))
-hist(DatasetAgeROF3$predictAge)
-dev.off()
-
 ## TODO: use terra equivalents
-template_raster <- raster(raster(LCC2015)) ## use as template
-ageLayerNew30 <- rasterize(
-  x = DatasetAgeROF3[, 1:2], # lon-lat data
+#template_raster <- raster(raster(LCC2015)) ## use as template
+f_age <- file.path(outputDir, "ageLayer_ROF_new_30m.tif")
+template_raster <- terra::rast(LCC2015) ## use as template
+ageLayerNew30 <- terra::rasterize(
+  x = as.matrix(DatasetAgeROF3[, which(colnames(DatasetAgeROF3) %in% c("coords.x1", "coords.x2"))]),
   y = template_raster,
-  field = DatasetAgeROF3[, 7], # vals to fill raster with
-  fun = mean
+  values = DatasetAgeROF3$predictAge,
+  fun = mean,
+  filename = f_age
 )
+drive_put(f_age, gid_outputs, name = basename(f_age))
+
 ## TODO: use ggplot + ggsave
 png(file.path(figsDir, "age_layer_new_no_wildfires.png")) ## TODO: confirm this is without wildfire overlay
 plot(ageLayerNew30)
