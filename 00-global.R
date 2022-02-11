@@ -121,7 +121,7 @@ levels(DatasetAge_ROF$ecozone)[levels(DatasetAge_ROF$ecozone) == "1"] <- "BOREAL
 levels(DatasetAge_ROF$ecozone)[levels(DatasetAge_ROF$ecozone) == "2"] <- "HUDSON PLAIN"
 DatasetAge_ROF <- subset(DatasetAge_ROF, !(ecozone %in% c("3"))) # SOUTHERN ARTIC
 
-DatasetAge_ROF$LCC <- as.factor(as.character(DatasetAge_ROF$LCC)) ## TODO: confirm LCC is integer/factor
+DatasetAge_ROF$LCC <- as.factor(as.character(DatasetAge_ROF$LCC))
 # summary(DatasetAge_ROF$LCC)
 DatasetAge_ROF <- subset(DatasetAge_ROF, !(LCC %in% c("0", "3", "4", "7", "9", "15", "16", "17", "18")))
 # summary(DatasetAge_ROF$LCC)
@@ -135,11 +135,14 @@ cols2use <- c("coords.x1", "coords.x2", layerNames, "source")
 DatasetAge_ROF$source <- "DatasetAge_ROF"
 stopifnot(colnames(DatasetAge_ROF) == cols2use)
 
+# str(DatasetAge1_proj)
 DatasetAge1_proj$source <- "DatasetAge1_proj"
 DatasetAge1_proj$PrevAge <- "PrevAge"
 DatasetAge1_proj <- DatasetAge1_proj[, cols2use]
 
+# str(DatasetAge3_ROF)
 DatasetAge3_ROF$source <- "DatasetAge3_ROF"
+DatasetAge3_ROF$PrevAge <- as.integer(DatasetAge3_ROF$PrevAge)
 DatasetAge3_ROF <- DatasetAge3_ROF[, cols2use]
 
 tmp <- rbind(
@@ -278,26 +281,32 @@ ggsave(file.path(figsDir, "Figs23.png"), Figs23)
 
 ## predictions for ROF -------------------------------------------------------------------------
 
-# findFactors(nrow(DatasetAge_ROF))
-f <- 253 ## using findFactors()
-DatasetAge_ROF$predictAge <- lapply(split(DatasetAge_ROF, f), function(x) {
-  exp(predict(modage2, as.matrix(x)))
-})
-DatasetAge_ROF$predictAge <- round(DatasetAge_ROF$predictAge, 0)
-hist(DatasetAge_ROF$predictAge)
-head(DatasetAge_ROF$predictAge)
-DatasetAge_ROF$predictAge[!is.finite(DatasetAge_ROF$predictAge)] <- NA
-DatasetAgeROF3 <- subset(DatasetAge_ROF, predictAge < 300 & predictAge > 0)
-range(na.omit(DatasetAgeROF3$predictAge))
+source("scripts/misc.R")
+f <- findFactors(nrow(DatasetAge_ROF))
+n <- f$pos[f$pos >= 200 & f$pos <= 300][1] ## divide into ~250 groups
 
-png() ## TODO
+DatasetAge_ROF_split <- split(DatasetAge_ROF, n)
+DatasetAge_ROF_split2 <- lapply(DatasetAge_ROF_split, function(x) {
+  val <- round(exp(predict(modage2, x)), 0)
+  val[!is.finite(val)] <- NA
+  x$predictAge <- as.integer(val)
+})
+DatasetAge_ROF <- unsplit(DatasetAge_ROF_split2)
+
+## TODO: use e.g., mclapply
+DatasetAge_ROF$predictAge <- unsplit(DatasetAge_ROF_split)
+DatasetAgeROF3 <- subset(DatasetAge_ROF, predictAge < 300 & predictAge > 0)
+# range(na.omit(DatasetAgeROF3$predictAge))
+
+png(file.path(figsDir, "hist_DatasetAgeROF3_predictAge_no_fire.png"))
 hist(DatasetAgeROF3$predictAge)
 dev.off()
 
 ## substitute predictions with time since last fire for the plots with information about wildfires
 DatasetAgeROF3$predictAge <- ifelse(!is.na(DatasetAgeROF3$TSLF), DatasetAgeROF3$TSLF, DatasetAgeROF3$predictAge)
-DatasetAgeROF3$predictAge <- as.numeric(DatasetAgeROF3$predictAge)
-png() ## TODO
+DatasetAgeROF3$predictAge <- as.integer(DatasetAgeROF3$predictAge)
+
+png(file.path(figsDir, "hist_DatasetAgeROF3_predictAge_with_fire.png"))
 hist(DatasetAgeROF3$predictAge)
 dev.off()
 
