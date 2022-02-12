@@ -287,23 +287,28 @@ ggsave(file.path(figsDir, "Figs23.png"), Figs23)
 ## predictions for ROF -------------------------------------------------------------------------
 
 source("scripts/misc.R")
-f <- findFactors(nrow(DatasetAge_ROF))
-n <- f$pos[f$pos >= 200 & f$pos <= 300][1] ## divide into ~250 groups
-g <- factor(sort(rank(row.names(DatasetAge_ROF)) %% n))
-Ncores <- 10
 
-DatasetAge_ROF_split <- split(DatasetAge_ROF, g)
-DatasetAge_ROF_split2 <- parallel::mclapply(DatasetAge_ROF_split, function(x) {
-  val <- round(exp(predict(modage2, x)), 0)
-  val[!is.finite(val)] <- NA
-  x$predictAge <- as.integer(val)
-  x
-}, mc.cores = Ncores) ## 450 GB
-DatasetAge_ROF <- unsplit(DatasetAge_ROF_split2, g)
+ff <- file.path(outputDir, "DatasetAge_ROF_predictAge.rds")
+if (!file.exists(ff)) {
+  f <- findFactors(nrow(DatasetAge_ROF))
+  n <- f$pos[f$pos >= 200 & f$pos <= 300][1] ## divide into ~250 groups
+  g <- factor(sort(rank(row.names(DatasetAge_ROF)) %% n))
+  Ncores <- 10
 
-ff <- file.path(outputDir, "DatasetAge_ROF_predictAge.qs")
-qs::qsave(DatasetAge_ROF, ff)
-drive_put(ff, gid_outputs, name = basename(ff))
+  DatasetAge_ROF_split <- split(DatasetAge_ROF, g)
+  DatasetAge_ROF_split2 <- parallel::mclapply(DatasetAge_ROF_split, function(x) {
+    val <- round(exp(predict(modage2, x)), 0)
+    val[!is.finite(val)] <- NA
+    x$predictAge <- as.integer(val)
+    x
+  }, mc.cores = Ncores) ## 450 GB
+  DatasetAge_ROF <- unsplit(DatasetAge_ROF_split2, g)
+
+  saveRDS(DatasetAge_ROF, ff)
+  drive_put(ff, gid_outputs, name = basename(ff))
+} else {
+  DatasetAge_ROF <- readRDS(ff)
+}
 
 DatasetAgeROF3 <- subset(DatasetAge_ROF, predictAge > 0 & predictAge < 300)
 # range(na.omit(DatasetAgeROF3$predictAge))
@@ -318,17 +323,28 @@ dev.off()
 DatasetAgeROF3$predictAge[!is.na(DatasetAgeROF3$TSLF)] <- DatasetAgeROF3$TSLF
 DatasetAgeROF3$predictAge <- as.integer(DatasetAgeROF3$predictAge)
 
-## TODO: use terra equivalents
-#template_raster <- raster(raster(LCC2015)) ## use as template
 f_age <- file.path(outputDir, "ageLayer_ROF_new_30m.tif")
-template_raster <- terra::rast(LCC2015) ## use as template
-ageLayerNew30 <- terra::rasterize(
-  x = as.matrix(DatasetAgeROF3[, which(colnames(DatasetAgeROF3) %in% c("coords.x1", "coords.x2"))]),
+
+## TODO: use terra equivalents -- crashes??
+# template_raster <- terra::rast(LCC2015) ## use as template
+# ageLayerNew30 <- terra::rasterize(
+#   x = as.matrix(DatasetAgeROF3[, which(colnames(DatasetAgeROF3) %in% c("coords.x1", "coords.x2"))]),
+#   y = template_raster,
+#   values = DatasetAgeROF3$predictAge,
+#   fun = mean,
+#   filename = f_age
+# )
+
+## (HERE)
+template_raster <- raster(raster(LCC2015)) ## use as template
+ageLayerNew30 <- raster::rasterize(
+  x = DatasetAgeROF3[, which(colnames(DatasetAgeROF3) %in% c("coords.x1", "coords.x2"))],
   y = template_raster,
-  values = DatasetAgeROF3$predictAge,
+  field = DatasetAgeROF3$predictAge,
   fun = mean,
   filename = f_age
 )
+
 drive_put(f_age, gid_outputs, name = basename(f_age))
 
 ## TODO: use ggplot + ggsave
