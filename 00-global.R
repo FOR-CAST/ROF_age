@@ -7,8 +7,9 @@ source("01-packages.R")
 ## project options + set paths ------------------------------------------------------------------
 
 ## Google Drive folder IDs
+gid_figures <- as_id("11_VAG1pREuf-9OlFRJPep57yp4iPVgFw")
 gid_inputs <- as_id("1DzbbVSYp0br-MIi1iI0EPMGGy4BRrjnk")
-gid_outputs <- as_id("11_VAG1pREuf-9OlFRJPep57yp4iPVgFw")
+gid_outputs <- as_id("17GP41t5rdaOeOhZ0B7FI6p4xmGM7xsHe")
 
 ## NOTE: many GIS ops on complete national datasets require large amounts of memory (>30 GB)
 lowMemory <- if (grepl("for-cast[.]ca", Sys.info()[["nodename"]])) FALSE else TRUE
@@ -348,7 +349,7 @@ ageLayerNew30 <- raster::rasterize(
 )
 
 archive::archive_write_dir(z_age, d_age)
-drive_put(z_age, gid_outputs, name = z_age)
+drive_put(z_age, gid_outputs, name = basename(z_age))
 
 ## TODO: use ggplot + ggsave
 png(file.path(figsDir, "age_layer_new_corrected.png"), height = 1600, width = 1600)
@@ -375,7 +376,7 @@ checkPath(dirname(fo), create = TRUE)
 #terra::writeRaster(ageLayerNew, fo, overwrite = TRUE)
 raster::writeRaster(ageLayerNew, fo, overwrite = TRUE)
 archive::archive_write_dir(fz, dirname(fo))
-retry(quote(drive_put(fz, gid_outputs)), retries = 5, exponentialDecayBase = 2)
+retry(quote(drive_put(fz, gid_outputs, basename(fz))), retries = 5, exponentialDecayBase = 2)
 
 ## upload files to google drive ----------------------------------------------------------------
 
@@ -390,7 +391,7 @@ if (isTRUE(reupload)) {
     z <- extension(prebuiltRasterDirNames[[f]], "zip")
     archive::archive_write_dir(z, prebuiltRasterDirNames[[f]])
 
-    retry(quote(drive_put(z, gid_inputs)), retries = 5, exponentialDecayBase = 2)
+    retry(quote(drive_put(z, gid_inputs, basename(z))), retries = 5, exponentialDecayBase = 2)
   })
 
   fo <- file.path(outputDir, "covariate_layers_ROF", "covariate_layers_ROF.tif")
@@ -402,18 +403,24 @@ if (isTRUE(reupload)) {
 
   terra::writeRaster(rasStack, fo, overwrite = TRUE)
   archive::archive_write_dir(fz, dirname(fo))
-  retry(quote(drive_put(fz, gid_outputs)), retries = 5, exponentialDecayBase = 2)
+  retry(quote(drive_put(fz, gid_outputs, basename(fz))), retries = 5, exponentialDecayBase = 2)
+
+  figs <- list.files(figsDir, full.names = TRUE)
+  lapply(figs, function(f) {
+    if (file.exists(f)) {
+      retry(quote(drive_put(f, gid_figures, basename(f))), retries = 5, exponentialDecayBase = 2)
+    }
+  })
 
   ## output figures + rasters
   filesToUpload <- c(
-    list.files(figsDir, full.names = TRUE), ## TODO: add final raster output
     file.path(outputDir, "modage2.txt"),
     file.path(outputDir, "modage_gam_check.txt")
   )
 
   lapply(filesToUpload, function(f) {
     if (file.exists(f)) {
-      retry(quote(drive_put(f, gid_outputs)), retries = 5, exponentialDecayBase = 2)
+      retry(quote(drive_put(f, gid_outputs, basename(f))), retries = 5, exponentialDecayBase = 2)
     }
   })
 }
