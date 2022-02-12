@@ -18,7 +18,7 @@ targetProj <- paste(
   "+x_0=0 +y_0=0 +units=m +no_defs +ellps=GRS80 +towgs84=0,0,0"
 )
 targetCRS <- "EPSG:42304" ## equivalent crs to targetProj; see https://epsg.io/42304
-targetRes <- 300 ## TODO: change this to 125 m to match simulation layers
+targetRes <- 125 ## TODO: change this to 125 m to match simulation layers
 
 ## project paths
 cacheDir <- checkPath("cache", create = TRUE)
@@ -310,7 +310,7 @@ if (!file.exists(ff)) {
   DatasetAge_ROF <- readRDS(ff)
 }
 
-DatasetAgeROF3 <- subset(DatasetAge_ROF, predictAge > 0 & predictAge < 300)
+DatasetAgeROF3 <- subset(DatasetAge_ROF, predictAge > 0 & predictAge <= 300)
 # range(na.omit(DatasetAgeROF3$predictAge))
 
 png(file.path(figsDir, "hist_DatasetAgeROF3_predictAge.png"))
@@ -323,7 +323,9 @@ dev.off()
 DatasetAgeROF3$predictAge[!is.na(DatasetAgeROF3$TSLF)] <- DatasetAgeROF3$TSLF
 DatasetAgeROF3$predictAge <- as.integer(DatasetAgeROF3$predictAge)
 
-f_age <- file.path(outputDir, "ageLayer_ROF_new_30m.tif")
+f_age <- "ageLayer_ROF_new_30m.tif"
+d_age <- checkPath(file.path(outputDir, tools::file_path_sans_ext(f_age)), create = TRUE)
+z_age <- extension(d_age, "zip")
 
 ## TODO: use terra equivalents -- crashes??
 # template_raster <- terra::rast(LCC2015) ## use as template
@@ -342,33 +344,36 @@ ageLayerNew30 <- raster::rasterize(
   y = template_raster,
   field = DatasetAgeROF3$predictAge,
   fun = mean,
-  filename = f_age
+  filename = file.path(d_age, f_age)
 )
 
-drive_put(f_age, gid_outputs, name = basename(f_age))
+archive::archive_write_dir(z_age, d_age)
+drive_put(z_age, gid_outputs, name = z_age)
 
 ## TODO: use ggplot + ggsave
-png(file.path(figsDir, "age_layer_new_no_wildfires.png")) ## TODO: confirm this is without wildfire overlay
+png(file.path(figsDir, "age_layer_new_corrected.png"), height = 1600, width = 1600)
 plot(ageLayerNew30)
 dev.off()
 
 ## previous Age layer
-png(file.path(figsDir, "age_layer_orig_250m.png")) ## TODO: confirm this is without wildfire overlay
+png(file.path(figsDir, "age_layer_orig_250m.png"), height = 1600, width = 1600)
 plot(prevAgeLayer)
 dev.off()
 
-png(file.path(figsDir, "hist_prev_age.png"))
+png(file.path(figsDir, "hist_prev_age.png"), height = 1600, width = 1600)
 hist(prevAgeLayer[])
 dev.off()
 
 ## final (new) age layer for simulations:
-ageLayerNew <- terra::aggregate(ageLayerNew30, fact = targetRes / 30, fun = modal, dissolve = FALSE)
+#ageLayerNew <- terra::aggregate(ageLayerNew30, fact = targetRes / 30, fun = modal, dissolve = FALSE)
+ageLayerNew <- raster::aggregate(ageLayerNew30, fact = targetRes / 30, fun = modal, dissolve = FALSE)
 
 fn <- sprintf("age_layer_new_%01dm", targetRes)
 fo <- file.path(outputDir, fn, extension(fn, "tif"))
 fz <- extension(dirname(fo), "zip")
 checkPath(dirname(fo), create = TRUE)
-terra::writeRaster(ageLayerNew, fo, overwrite = TRUE)
+#terra::writeRaster(ageLayerNew, fo, overwrite = TRUE)
+raster::writeRaster(ageLayerNew, fo, overwrite = TRUE)
 archive::archive_write_dir(fz, dirname(fo))
 retry(quote(drive_put(fz, gid_outputs)), retries = 5, exponentialDecayBase = 2)
 
@@ -402,7 +407,8 @@ if (isTRUE(reupload)) {
   ## output figures + rasters
   filesToUpload <- c(
     list.files(figsDir, full.names = TRUE), ## TODO: add final raster output
-    file.path(outputDir, modage2.txt)
+    file.path(outputDir, "modage2.txt"),
+    file.path(outputDir, "modage_gam_check.txt")
   )
 
   lapply(filesToUpload, function(f) {
