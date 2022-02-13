@@ -170,11 +170,40 @@ DatasetAge_ROF$TSLF[DatasetAge_ROF$TSLF < 1970L] <- NA_integer_
 
 ## the model -----------------------------------------------------------------------------------
 
-## drop unused columns from input and prediction datasets; keep only those used in modage2 + prevAge
+## drop unused columns from input and prediction datasets; keep only those used in modage + prevAge
 cols2keep <- c("coords.x1", "coords.x2", "sccoords.x1", "sccoords.x2", layerNames) ## TODO: with #23
 DatasetAge_ROF <- DatasetAge_ROF[, names(DatasetAge_ROF) %in% cols2keep]
 DatasetAge3_ROF <- DatasetAge3_ROF[, names(DatasetAge3_ROF) %in% cols2keep]
 DatasetAge1_proj <- DatasetAge1_proj[, names(DatasetAge1_proj) %in% cols2keep]
+
+## NOTE: too much RAM to run below with the parameter select=TRUE
+modage1 <- bam(log(TSLF) ~ s(total_BA) +
+                 s(Tave_sm) +
+                 LCC +
+                 ecozone +
+                 ecozone * LCC +
+                 ti(total_BA, Tave_sm) +
+                 # s(total_BA, by = LCC) +
+                 # s(total_BA, by = ecozone) +
+                 # s(Tave_sm, by = LCC) +
+                 # s(Tave_sm, by = ecozone)+
+                 s(sccoords.x1, sccoords.x2, bs = "gp", k = 100, m = 2),
+               data = DatasetAge1_proj, method = "fREML", discrete = TRUE, drop.intercept = FALSE,
+)
+
+sink(file.path(outputDir, "modage1.txt"))
+summary(modage1)
+AIC(modage1)
+sink()
+
+png(file.path(figsDir, "modage1.png"), width = 1200, height = 600, pointsize = 12)
+par(mfrow = c(2, 2), mar = c(4, 4, 2, 1))
+gam.check(modage1, rep = 100)
+dev.off()
+
+sink(file.path(outputDir, "modage1_gam_check.txt"))
+gam.check(modage1, rep = 100)
+sink()
 
 ## NOTE: too much RAM to run below with the parameter select=TRUE
 modage2 <- bam(log(TSLF) ~ s(total_BA) +
@@ -205,8 +234,10 @@ sink(file.path(outputDir, "modage2_gam_check.txt"))
 gam.check(modage2, rep = 100)
 sink()
 
+## TODO: make this a function that can handle diff modages
+
 ## NOTE: not all ecozones and LCCs present in ROF area, so some warnings produced; it's OK
-DatasetAge1_proj$predictAge <- exp(predict(modage2, DatasetAge1_proj))
+DatasetAge1_proj$predictAge <- exp(predict(modage1, DatasetAge1_proj))
 
 FigHist1 <- ggplot(DatasetAge1_proj, aes(x = TSLF)) +
   xlim(0, 300) +
@@ -244,7 +275,7 @@ Fig1 <- ggplot(DatasetAge1_proj, aes(y = TSLF, x = (predictAge))) +
 ggsave(file.path(figsDir, "Fig1.png"), Fig1)
 
 ## Predicted vs Observed for the ground plots within the ROF region
-DatasetAge3_ROF$predictAge <- exp(predict(modage2, DatasetAge3_ROF))
+DatasetAge3_ROF$predictAge <- exp(predict(modage1, DatasetAge3_ROF))
 cor.test(
   DatasetAge3_ROF[which(DatasetAge3_ROF$TSLF > 30 & DatasetAge3_ROF$PrevAge > 30), ]$predictAge,
   DatasetAge3_ROF[which(DatasetAge3_ROF$TSLF > 30 & DatasetAge3_ROF$PrevAge > 30), ]$TSLF
@@ -298,7 +329,7 @@ if (!file.exists(ff)) {
 
   DatasetAge_ROF_split <- split(DatasetAge_ROF, g)
   DatasetAge_ROF_split2 <- parallel::mclapply(DatasetAge_ROF_split, function(x) {
-    val <- round(exp(predict(modage2, x)), 0)
+    val <- round(exp(predict(modage1, x)), 0)
     val[!is.finite(val)] <- NA
     x$predictAge <- as.integer(val)
     x
@@ -414,8 +445,10 @@ if (isTRUE(reupload)) {
 
   ## output figures + rasters
   filesToUpload <- c(
+    file.path(outputDir, "modage1.txt"),
     file.path(outputDir, "modage2.txt"),
-    file.path(outputDir, "modage_gam_check.txt")
+    file.path(outputDir, "modage1_gam_check.txt"),
+    file.path(outputDir, "modage2_gam_check.txt")
   )
 
   lapply(filesToUpload, function(f) {
