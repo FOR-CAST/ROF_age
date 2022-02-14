@@ -258,7 +258,7 @@ FigHist2 <- ggplot(DatasetAge1_proj, aes(x = predictAge)) +
   theme_bw()
 
 FigHist <- ggpubr::ggarrange(FigHist1, FigHist2)
-ggsave(file.path(figsDir, "plot_age_pred_vs_obs_hists.png"), FigHist)
+ggsave(file.path(figsDir, "plot_age_pred_vs_obs_hists_modage1.png"), FigHist)
 
 # Predicted vs Observed all ecozones included--> new Age layer
 cor.test((DatasetAge1_proj$predictAge), DatasetAge1_proj$TSLF)
@@ -272,7 +272,7 @@ Fig1 <- ggplot(DatasetAge1_proj, aes(y = TSLF, x = (predictAge))) +
   ylim(0, 300) +
   facet_wrap(~ecozone) +
   theme_bw()
-ggsave(file.path(figsDir, "Fig1.png"), Fig1)
+ggsave(file.path(figsDir, "Fig1_modage1.png"), Fig1)
 
 ## Predicted vs Observed for the ground plots within the ROF region
 DatasetAge3_ROF$predictAge <- exp(predict(modage1, DatasetAge3_ROF))
@@ -314,13 +314,13 @@ Fig3 <- ggplot(
   # annotate("text", x = 20, y = 200, label = "r=0.46, p<0.001", hjust = 0, vjust = 0, fontface = 1, size = 4) +
   theme_bw()
 Figs23 <- ggpubr::ggarrange(Fig2, Fig3, labels = "AUTO")
-ggsave(file.path(figsDir, "Figs23.png"), Figs23)
+ggsave(file.path(figsDir, "Figs23_modage1.png"), Figs23)
 
 ## predictions for ROF -------------------------------------------------------------------------
 
 source("scripts/misc.R")
 
-ff <- file.path(outputDir, "DatasetAge_ROF_predictAge.rds")
+ff <- file.path(outputDir, "DatasetAge_ROF_predictAge_modage1.rds")
 if (!file.exists(ff)) {
   f <- findFactors(nrow(DatasetAge_ROF))
   n <- f$pos[f$pos >= 200 & f$pos <= 300][1] ## divide into ~250 groups
@@ -345,7 +345,7 @@ if (!file.exists(ff)) {
 DatasetAgeROF3 <- subset(DatasetAge_ROF, predictAge > 0 & predictAge <= 300)
 # range(na.omit(DatasetAgeROF3$predictAge))
 
-png(file.path(figsDir, "hist_DatasetAgeROF3_predictAge.png"))
+png(file.path(figsDir, "hist_DatasetAgeROF3_predictAge_modage1.png"))
 par(mfrow = c(1, 2))
 hist(DatasetAgeROF3$predictAge, main = "ROF predicted age (uncorrected)")
 hist(DatasetAgeROF3$predictAge, main = "ROF predicted age (corrected with fire data)")
@@ -355,7 +355,7 @@ dev.off()
 DatasetAgeROF3$predictAge[!is.na(DatasetAgeROF3$TSLF)] <- DatasetAgeROF3$TSLF
 DatasetAgeROF3$predictAge <- as.integer(DatasetAgeROF3$predictAge)
 
-f_age <- "ageLayer_ROF_new_30m.tif"
+f_age <- "ageLayer_ROF_new_30m_modage1.tif"
 d_age <- checkPath(file.path(outputDir, tools::file_path_sans_ext(f_age)), create = TRUE)
 z_age <- extension(d_age, "zip")
 
@@ -383,16 +383,16 @@ archive::archive_write_dir(z_age, d_age)
 drive_put(z_age, gid_outputs, name = basename(z_age))
 
 ## TODO: use ggplot + ggsave
-png(file.path(figsDir, "age_layer_new_corrected.png"), height = 1600, width = 1600)
+png(file.path(figsDir, "age_layer_new_corrected_modage1.png"), height = 1600, width = 1600)
 plot(ageLayerNew30)
 dev.off()
 
 ## previous Age layer
-png(file.path(figsDir, "age_layer_orig_250m.png"), height = 1600, width = 1600)
+png(file.path(figsDir, "age_layer_orig_250m_modage1.png"), height = 1600, width = 1600)
 plot(prevAgeLayer)
 dev.off()
 
-png(file.path(figsDir, "hist_prev_age.png"), height = 1600, width = 1600)
+png(file.path(figsDir, "hist_prev_age_modage1.png"), height = 1600, width = 1600)
 hist(prevAgeLayer[])
 dev.off()
 
@@ -400,7 +400,7 @@ dev.off()
 #ageLayerNew <- terra::aggregate(ageLayerNew30, fact = targetRes / 30, fun = modal, dissolve = FALSE)
 ageLayerNew <- raster::aggregate(ageLayerNew30, fact = targetRes / 30, fun = modal, dissolve = FALSE)
 
-fn <- sprintf("age_layer_new_%01dm", targetRes)
+fn <- sprintf("age_layer_new_%01dm_modage1", targetRes)
 fo <- file.path(outputDir, fn, extension(fn, "tif"))
 fz <- extension(dirname(fo), "zip")
 checkPath(dirname(fo), create = TRUE)
