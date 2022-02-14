@@ -345,15 +345,19 @@ if (!file.exists(ff)) {
 DatasetAgeROF3 <- subset(DatasetAge_ROF, predictAge > 0 & predictAge <= 300)
 # range(na.omit(DatasetAgeROF3$predictAge))
 
-png(file.path(figsDir, "hist_DatasetAgeROF3_predictAge_modage1.png"))
-par(mfrow = c(1, 2))
-hist(DatasetAgeROF3$predictAge, main = "ROF predicted age (uncorrected)")
-hist(DatasetAgeROF3$predictAge, main = "ROF predicted age (corrected with fire data)")
-dev.off()
+noFF <- hist(DatasetAgeROF3$predictAge, main = "ROF predicted age (uncorrected)")
 
 ## substitute predictions with time since last fire for the plots with information about wildfires
 DatasetAgeROF3$predictAge[!is.na(DatasetAgeROF3$TSLF)] <- DatasetAgeROF3$TSLF
 DatasetAgeROF3$predictAge <- as.integer(DatasetAgeROF3$predictAge)
+
+withFF <- hist(DatasetAgeROF3$predictAge, main = "ROF predicted age (corrected with fire data)")
+
+png(file.path(figsDir, "hist_DatasetAgeROF3_predictAge_modage1.png"))
+par(mfrow = c(1, 2))
+plot(noFF)
+plot(withFF)
+dev.off()
 
 f_age <- "ageLayer_ROF_new_30m_modage1.tif"
 d_age <- checkPath(file.path(outputDir, tools::file_path_sans_ext(f_age)), create = TRUE)
