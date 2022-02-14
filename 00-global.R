@@ -369,7 +369,6 @@ z_age <- extension(d_age, "zip")
 #   filename = f_age
 # )
 
-## (HERE)
 template_raster <- raster(raster(LCC2015)) ## use as template
 ageLayerNew30 <- raster::rasterize(
   x = DatasetAgeROF3[, which(colnames(DatasetAgeROF3) %in% c("coords.x1", "coords.x2"))],
@@ -436,15 +435,9 @@ if (isTRUE(reupload)) {
   archive::archive_write_dir(fz, dirname(fo))
   retry(quote(drive_put(fz, gid_outputs, basename(fz))), retries = 5, exponentialDecayBase = 2)
 
-  figs <- list.files(figsDir, full.names = TRUE)
-  lapply(figs, function(f) {
-    if (file.exists(f)) {
-      retry(quote(drive_put(f, gid_figures, basename(f))), retries = 5, exponentialDecayBase = 2)
-    }
-  })
-
   ## output figures + rasters
   filesToUpload <- c(
+    list.files(figsDir, full.names = TRUE),
     file.path(outputDir, "modage1.txt"),
     file.path(outputDir, "modage2.txt"),
     file.path(outputDir, "modage1_gam_check.txt"),
