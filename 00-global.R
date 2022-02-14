@@ -387,11 +387,11 @@ plot(ageLayerNew30)
 dev.off()
 
 ## previous Age layer
-png(file.path(figsDir, "age_layer_orig_250m_modage1.png"), height = 1600, width = 1600)
+png(file.path(figsDir, "age_layer_orig_250m.png"), height = 1600, width = 1600)
 plot(prevAgeLayer)
 dev.off()
 
-png(file.path(figsDir, "hist_prev_age_modage1.png"), height = 1600, width = 1600)
+png(file.path(figsDir, "hist_prev_age.png"), height = 1600, width = 1600)
 hist(prevAgeLayer[])
 dev.off()
 
@@ -435,9 +435,16 @@ if (isTRUE(reupload)) {
   archive::archive_write_dir(fz, dirname(fo))
   retry(quote(drive_put(fz, gid_outputs, basename(fz))), retries = 5, exponentialDecayBase = 2)
 
-  ## output figures + rasters
+  ## output figures
+  figs2upload <- list.files(figsDir, full.names = TRUE)
+  lapply(figs2upload, function(f) {
+    if (file.exists(f)) {
+      retry(quote(drive_put(f, gid_figures, basename(f))), retries = 5, exponentialDecayBase = 2)
+    }
+  })
+
+  ## output files
   filesToUpload <- c(
-    list.files(figsDir, full.names = TRUE),
     file.path(outputDir, "modage1.txt"),
     file.path(outputDir, "modage2.txt"),
     file.path(outputDir, "modage1_gam_check.txt"),
