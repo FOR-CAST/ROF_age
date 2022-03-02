@@ -38,7 +38,7 @@ pkgs1 <- c(
 )
 Require(pkgs1, require = FALSE) ## don't load/attach yet, just ensure these get installed
 
-Require("PredictiveEcology/reproducible@terraInProjectInputs (>= 1.2.8.9023)", require = FALSE)
+Require("PredictiveEcology/reproducible@development (>= 1.2.8.9023)", require = FALSE)
 Require("PredictiveEcology/LandR@development (>= 1.0.7.9002)", require = FALSE)
 
 if (FALSE) {
@@ -49,7 +49,11 @@ if (FALSE) {
 pkgs2 <- c(
   "fasterize", "ggplot2", "googledrive", "mgcv" ## TODO: need tidyr but Rstudio is a jerk
 )
-Require(c(pkgs2, "raster", "sf", "terra", "reproducible"))
+Require(c(
+  "terra", ## TODO: Rstudio is a jerk
+  "raster", "sf", "reproducible"
+))
+Require(pkgs2)
 
 if (identical(Sys.info()[["user"]], "achubaty")) {
   drive_auth(email = "achubaty@for-cast.ca")

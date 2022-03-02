@@ -19,7 +19,7 @@ targetProj <- paste(
   "+x_0=0 +y_0=0 +units=m +no_defs +ellps=GRS80 +towgs84=0,0,0"
 )
 targetCRS <- "EPSG:42304" ## equivalent crs to targetProj; see https://epsg.io/42304
-targetRes <- 125 ## TODO: change this to 125 m to match simulation layers
+targetRes <- 125 ## 125 m to match simulation layers
 
 ## project paths
 cacheDir <- checkPath("cache", create = TRUE)
@@ -348,7 +348,7 @@ DatasetAgeROF3 <- subset(DatasetAge_ROF, predictAge > 0 & predictAge <= 300)
 noFF <- hist(DatasetAgeROF3$predictAge, main = "ROF predicted age (uncorrected)")
 
 ## substitute predictions with time since last fire for the plots with information about wildfires
-DatasetAgeROF3$predictAge[!is.na(DatasetAgeROF3$TSLF)] <- DatasetAgeROF3$TSLF
+DatasetAgeROF3$predictAge[!is.na(DatasetAgeROF3$TSLF)] <- DatasetAgeROF3$TSLF ## TODO: fix this (#25)
 DatasetAgeROF3$predictAge <- as.integer(DatasetAgeROF3$predictAge)
 
 withFF <- hist(DatasetAgeROF3$predictAge, main = "ROF predicted age (corrected with fire data)")
