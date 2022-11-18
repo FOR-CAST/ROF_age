@@ -131,7 +131,7 @@ tslf <- terra::as.int(tslf) ## probably reduundant, but enforce int
 rm(dataYear)
 
 ecozones <- Cache(
-  prepInputs_ecozones,
+  prepInputs_ecozones, ## TODO: use LandR::prepEcozonesRst()
   url = "https://sis.agr.gc.ca/cansis/nsdb/ecostrat/zone/ecozone_shp.zip",
   targetFile = "ecozones.shp",
   destinationPath = inputDir,
